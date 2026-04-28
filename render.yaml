@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: tflite-policy-v9-api
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120
+    autoDeploy: true
+    envVars:
+      - key: MODEL_PATH
+        value: /opt/render/project/src/model.tflite
+      - key: NORM_PATH
+        value: /opt/render/project/src/norm.json
+      - key: POLICY_PATH
+        value: /opt/render/project/src/policy_v9.json
