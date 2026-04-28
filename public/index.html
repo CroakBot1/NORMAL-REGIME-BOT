@@ -75,13 +75,13 @@
       border: 1px solid var(--border);
       border-radius: 18px;
       padding: 16px;
-      box-shadow: 0 18px 45px rgba(0,0,0,.25);
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.25);
     }
 
     .card h2 {
       font-size: 14px;
       margin: 0 0 14px;
-      letter-spacing: .08em;
+      letter-spacing: 0.08em;
       color: #b9c5d8;
       text-transform: uppercase;
     }
@@ -93,7 +93,8 @@
       margin: 11px 0 5px;
     }
 
-    input, select {
+    input,
+    select {
       width: 100%;
       border: 1px solid var(--border);
       border-radius: 12px;
@@ -134,6 +135,12 @@
       cursor: pointer;
       background: var(--blue);
       margin-top: 12px;
+      min-height: 44px;
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
     }
 
     button.secondary {
@@ -166,21 +173,22 @@
       border: 1px solid var(--border);
       background: #0a1019;
       color: var(--muted);
+      margin: 0 6px 8px 0;
     }
 
     .pill.green {
       color: var(--green);
-      border-color: rgba(51,209,122,.5);
+      border-color: rgba(51, 209, 122, 0.5);
     }
 
     .pill.red {
       color: var(--red);
-      border-color: rgba(255,92,115,.5);
+      border-color: rgba(255, 92, 115, 0.5);
     }
 
     .pill.yellow {
       color: var(--yellow);
-      border-color: rgba(246,211,101,.5);
+      border-color: rgba(246, 211, 101, 0.5);
     }
 
     .grid3 {
@@ -233,18 +241,36 @@
       font-size: 12px;
     }
 
+    .log:first-child {
+      border-top: 0;
+    }
+
     .log .time {
       color: var(--muted);
     }
 
     .warning {
-      border: 1px solid rgba(246,211,101,.4);
-      background: rgba(246,211,101,.08);
+      border: 1px solid rgba(246, 211, 101, 0.4);
+      background: rgba(246, 211, 101, 0.08);
       border-radius: 14px;
       padding: 12px;
       color: var(--yellow);
       font-size: 13px;
       margin-bottom: 14px;
+      line-height: 1.45;
+    }
+
+    .danger-warning {
+      border-color: rgba(255, 92, 115, 0.45);
+      background: rgba(255, 92, 115, 0.08);
+      color: #ff9aa9;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+      margin-top: 8px;
     }
   </style>
 </head>
@@ -260,11 +286,15 @@
       <h2>Controls</h2>
 
       <div class="warning">
-        API keys are never entered here. Put BYBIT_API_KEY and BYBIT_API_SECRET in Render environment variables.
+        API keys are never entered here. Put <b>BYBIT_API_KEY</b> and <b>BYBIT_API_SECRET</b> in Render environment variables.
+      </div>
+
+      <div class="warning danger-warning">
+        Use <b>DEMO</b> first. Keep <b>Allow Real Orders</b> OFF until all scans are working. Fixed Qty means coin quantity, not USDT amount.
       </div>
 
       <label>Admin Token</label>
-      <input id="token" type="password" placeholder="ADMIN_TOKEN" />
+      <input id="token" type="password" placeholder="ADMIN_TOKEN" autocomplete="current-password" />
 
       <div class="row">
         <div>
@@ -364,14 +394,18 @@
         Force Entry
       </label>
 
-      <button class="green" onclick="saveConfig()">Save Config</button>
+      <button id="saveBtn" class="green" onclick="saveConfig()">Save Config</button>
 
       <div class="actions">
-        <button class="secondary" onclick="loadState()">Refresh</button>
-        <button onclick="runOnce()">Scan Only</button>
+        <button id="refreshBtn" class="secondary" onclick="loadState()">Refresh</button>
+        <button id="scanBtn" onclick="runOnce()">Scan Only</button>
       </div>
 
-      <button class="danger" onclick="runOrder()">Run With Order Permission</button>
+      <button id="orderBtn" class="danger" onclick="runOrder()">Run With Order Permission</button>
+
+      <div class="small">
+        Tip: safest test settings are DEMO, Fixed Qty 0.001, Auto Enabled OFF, Allow Real Orders OFF.
+      </div>
     </section>
 
     <section>
@@ -402,7 +436,7 @@
 
       <div class="card">
         <h2>Logs</h2>
-        <div id="logs"></div>
+        <div id="logs">No logs yet.</div>
       </div>
     </section>
   </main>
@@ -413,6 +447,20 @@ const fields = [
   "symbol",
   "baseInterval",
   "auxInterval",
+  "leverage",
+  "fixedQty",
+  "stakePct",
+  "reserveUtaUsdt",
+  "tpPct",
+  "slPct",
+  "tradingThreshold",
+  "holdThreshold",
+  "adxThreshold",
+  "loopSeconds",
+  "cooldownMinutes"
+];
+
+const numericFields = [
   "leverage",
   "fixedQty",
   "stakePct",
@@ -442,7 +490,73 @@ function headers() {
 }
 
 function setPill(text, cls) {
-  return `<span class="pill ${cls || ""}">${text}</span>`;
+  return `<span class="pill ${cls || ""}">${escapeHtml(text)}</span>`;
+}
+
+function setBusy(isBusy, label) {
+  const buttons = ["saveBtn", "refreshBtn", "scanBtn", "orderBtn"];
+  for (const id of buttons) {
+    const el = document.getElementById(id);
+    if (el) el.disabled = isBusy;
+  }
+
+  if (label) {
+    document.getElementById("snapshot").textContent = label;
+  }
+}
+
+function showError(title, errOrData) {
+  const message =
+    typeof errOrData === "string"
+      ? errOrData
+      : errOrData?.error || errOrData?.message || JSON.stringify(errOrData, null, 2);
+
+  document.getElementById("snapshot").textContent =
+    title + "\n\n" + message + "\n\nCheck Render logs and environment variables.";
+}
+
+function normalizeLatest(rawLatest) {
+  if (!rawLatest) return null;
+
+  const details = rawLatest.details || {};
+
+  return {
+    ...rawLatest,
+    symbol: rawLatest.symbol || details.symbol || details.cfg?.symbol || "-",
+    price: rawLatest.price ?? details.price ?? null,
+    decision: rawLatest.decision || details.raw?.decision || "-",
+    finalDecision:
+      rawLatest.finalDecision ||
+      rawLatest.final_decision ||
+      details.finalDecision ||
+      "-",
+    blockedReason:
+      rawLatest.blockedReason ||
+      rawLatest.blocked_reason ||
+      details.blockedReason ||
+      null,
+    details
+  };
+}
+
+async function fetchJson(url, options = {}) {
+  const res = await fetch(url, options);
+  const text = await res.text();
+
+  let data;
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = { raw: text };
+  }
+
+  if (!res.ok) {
+    const error = new Error(data.error || data.raw || "Request failed");
+    error.data = data;
+    throw error;
+  }
+
+  return data;
 }
 
 async function loadState() {
@@ -452,128 +566,210 @@ async function loadState() {
     return;
   }
 
-  const res = await fetch("/api/state", { headers: headers() });
-  const data = await res.json();
+  try {
+    const data = await fetchJson("/api/state", {
+      method: "GET",
+      headers: headers()
+    });
 
-  if (!res.ok) {
-    document.getElementById("snapshot").textContent = JSON.stringify(data, null, 2);
-    return;
+    const cfg = data.config || {};
+
+    for (const f of fields) {
+      const el = document.getElementById(f);
+      if (el) el.value = cfg[f] ?? "";
+    }
+
+    for (const b of bools) {
+      const el = document.getElementById(b);
+      if (el) el.checked = !!cfg[b];
+    }
+
+    const latest = normalizeLatest(data.latest);
+
+    document.getElementById("mSymbol").textContent = cfg.symbol || latest?.symbol || "-";
+    document.getElementById("mPrice").textContent =
+      latest?.price !== null && latest?.price !== undefined
+        ? Number(latest.price).toFixed(2)
+        : "-";
+    document.getElementById("mFinal").textContent = latest?.finalDecision || "-";
+
+    if (latest) {
+      const details = latest.details || {};
+      const final = latest.finalDecision;
+      const cls =
+        final === "ALLOW_LONG" ? "green" :
+        final === "ALLOW_SHORT" ? "red" :
+        "yellow";
+
+      document.getElementById("badges").innerHTML = [
+        setPill(final, cls),
+        setPill(details.raw?.regime || "NO_REGIME"),
+        setPill("ADX " + Number(details.adxGate?.metrics?.adx || 0).toFixed(2)),
+        setPill(latest.blockedReason || "NO_BLOCK")
+      ].join(" ");
+
+      document.getElementById("snapshot").textContent = JSON.stringify(latest, null, 2);
+    } else {
+      document.getElementById("badges").innerHTML = "";
+      document.getElementById("snapshot").textContent = "No snapshot yet. Tap Scan Only.";
+    }
+
+    const logs = Array.isArray(data.logs) ? data.logs : [];
+    document.getElementById("logs").innerHTML = logs.length
+      ? logs.map(l => `
+          <div class="log">
+            <div>
+              <strong>${escapeHtml(l.level || "INFO")}</strong>
+              <span class="time">${escapeHtml(formatDate(l.created_at))}</span>
+            </div>
+            <div>${escapeHtml(l.message || "")}</div>
+          </div>
+        `).join("")
+      : "No logs yet.";
+  } catch (err) {
+    showError("Failed to load state", err.data || err);
   }
-
-  const cfg = data.config;
-  for (const f of fields) {
-    if (document.getElementById(f)) document.getElementById(f).value = cfg[f] ?? "";
-  }
-  for (const b of bools) {
-    document.getElementById(b).checked = !!cfg[b];
-  }
-
-  const latest = data.latest;
-  document.getElementById("mSymbol").textContent = cfg.symbol || "-";
-  document.getElementById("mPrice").textContent = latest?.price ? Number(latest.price).toFixed(2) : "-";
-  document.getElementById("mFinal").textContent = latest?.final_decision || "-";
-
-  if (latest) {
-    const details = latest.details || {};
-    const final = latest.final_decision;
-    const cls =
-      final === "ALLOW_LONG" ? "green" :
-      final === "ALLOW_SHORT" ? "red" :
-      "yellow";
-
-    document.getElementById("badges").innerHTML = [
-      setPill(final, cls),
-      setPill(details.raw?.regime || "NO_REGIME"),
-      setPill("ADX " + Number(details.adxGate?.metrics?.adx || 0).toFixed(2)),
-      setPill(details.blockedReason || latest.details?.blockedReason || "NO_BLOCK")
-    ].join(" ");
-
-    document.getElementById("snapshot").textContent = JSON.stringify(latest, null, 2);
-  } else {
-    document.getElementById("snapshot").textContent = "No snapshot yet.";
-  }
-
-  document.getElementById("logs").innerHTML = data.logs.map(l => `
-    <div class="log">
-      <div><strong>${l.level}</strong> <span class="time">${new Date(l.created_at).toLocaleString()}</span></div>
-      <div>${escapeHtml(l.message)}</div>
-    </div>
-  `).join("");
 }
 
 async function saveConfig() {
-  const body = {};
+  const t = token();
+  if (!t) {
+    document.getElementById("snapshot").textContent = "Enter ADMIN_TOKEN first.";
+    return;
+  }
 
-  for (const f of fields) {
-    const el = document.getElementById(f);
-    let v = el.value;
+  try {
+    setBusy(true, "Saving config...");
 
-    if ([
-      "leverage",
-      "fixedQty",
-      "stakePct",
-      "reserveUtaUsdt",
-      "tpPct",
-      "slPct",
-      "tradingThreshold",
-      "holdThreshold",
-      "adxThreshold",
-      "loopSeconds",
-      "cooldownMinutes"
-    ].includes(f)) {
-      v = Number(v);
+    const body = {};
+
+    for (const f of fields) {
+      const el = document.getElementById(f);
+      if (!el) continue;
+
+      let v = el.value;
+
+      if (numericFields.includes(f)) {
+        v = Number(v);
+        if (!Number.isFinite(v)) {
+          throw new Error(`${f} must be a valid number`);
+        }
+      }
+
+      body[f] = v;
     }
 
-    body[f] = v;
+    body.symbol = String(body.symbol || "BTCUSDT").trim().toUpperCase();
+    body.env = body.env === "PROD" ? "PROD" : "DEMO";
+
+    for (const b of bools) {
+      const el = document.getElementById(b);
+      body[b] = !!el.checked;
+    }
+
+    const data = await fetchJson("/api/config", {
+      method: "POST",
+      headers: headers(),
+      body: JSON.stringify(body)
+    });
+
+    document.getElementById("snapshot").textContent =
+      "Config saved.\n\n" + JSON.stringify(data.config || data, null, 2);
+
+    await loadState();
+  } catch (err) {
+    showError("Save config failed", err.data || err);
+  } finally {
+    setBusy(false);
   }
-
-  for (const b of bools) {
-    body[b] = document.getElementById(b).checked;
-  }
-
-  const res = await fetch("/api/config", {
-    method: "POST",
-    headers: headers(),
-    body: JSON.stringify(body)
-  });
-
-  const data = await res.json();
-  if (!res.ok) alert(JSON.stringify(data, null, 2));
-  await loadState();
 }
 
 async function runOnce() {
-  document.getElementById("snapshot").textContent = "Running scan...";
-  const res = await fetch("/api/run-once", {
-    method: "POST",
-    headers: headers(),
-    body: "{}"
-  });
-  const data = await res.json();
-  document.getElementById("snapshot").textContent = JSON.stringify(data, null, 2);
-  await loadState();
+  const t = token();
+  if (!t) {
+    document.getElementById("snapshot").textContent = "Enter ADMIN_TOKEN first.";
+    return;
+  }
+
+  try {
+    setBusy(true, "Running scan...");
+
+    const data = await fetchJson("/api/run-once", {
+      method: "POST",
+      headers: headers(),
+      body: "{}"
+    });
+
+    document.getElementById("snapshot").textContent = JSON.stringify(data, null, 2);
+    await loadState();
+  } catch (err) {
+    showError("Scan failed", err.data || err);
+  } finally {
+    setBusy(false);
+  }
 }
 
 async function runOrder() {
-  const ok = confirm("This can place a live/demo order only if Allow Real Orders is enabled. Continue?");
+  const t = token();
+  if (!t) {
+    document.getElementById("snapshot").textContent = "Enter ADMIN_TOKEN first.";
+    return;
+  }
+
+  const env = document.getElementById("env").value;
+  const fixedQty = Number(document.getElementById("fixedQty").value || 0);
+  const allowRealOrders = document.getElementById("allowRealOrders").checked;
+
+  let warning =
+    "This can place a live/demo order only if Allow Real Orders is enabled.\n\n" +
+    `Environment: ${env}\n` +
+    `Fixed Qty: ${fixedQty}\n` +
+    `Allow Real Orders: ${allowRealOrders ? "ON" : "OFF"}\n\n` +
+    "Continue?";
+
+  if (env === "PROD") {
+    warning =
+      "DANGER: You are using PROD.\n\n" +
+      "This may place a real Bybit order if Allow Real Orders is ON.\n\n" +
+      `Fixed Qty: ${fixedQty}\n\n` +
+      "Continue?";
+  }
+
+  const ok = confirm(warning);
   if (!ok) return;
 
-  document.getElementById("snapshot").textContent = "Running order-permission scan...";
-  const res = await fetch("/api/run-order", {
-    method: "POST",
-    headers: headers(),
-    body: "{}"
-  });
-  const data = await res.json();
-  document.getElementById("snapshot").textContent = JSON.stringify(data, null, 2);
-  await loadState();
+  try {
+    setBusy(true, "Running order-permission scan...");
+
+    const data = await fetchJson("/api/run-order", {
+      method: "POST",
+      headers: headers(),
+      body: "{}"
+    });
+
+    document.getElementById("snapshot").textContent = JSON.stringify(data, null, 2);
+    await loadState();
+  } catch (err) {
+    showError("Order scan failed", err.data || err);
+  } finally {
+    setBusy(false);
+  }
+}
+
+function formatDate(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return d.toLocaleString();
 }
 
 function escapeHtml(s) {
-  return String(s)
+  return String(s ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 document.getElementById("token").value = localStorage.getItem("adminToken") || "";
