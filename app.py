@@ -11,11 +11,17 @@ from pybit.unified_trading import HTTP
 MODE = os.getenv("BYBIT_MODE", "live").strip().lower()
 TESTNET = MODE != "live"
 
-API_KEY = os.getenv("BYBIT_API_KEY", "").strip()
-API_SECRET = os.getenv("BYBIT_API_SECRET", "").strip()
+# ============================================================
+# HARD CODED BYBIT API CREDENTIALS
+# Paste your NEW Bybit API key and secret here.
+# Warning: Do not use a public GitHub repo with hard-coded keys.
+# ============================================================
+API_KEY = "Mj8lClA90BOjNUidPI"
+API_SECRET = "etAdJ9i1gEhFIU1YNPP1nUzeXsPfaXZaRcmx"
 
 COIN = "USDT"
 
+# These values still come from Render Environment Variables or .env.
 RESERVE_USDT = Decimal(os.getenv("RESERVE_USDT", "501"))
 MIN_TRANSFER_USDT = Decimal(os.getenv("MIN_TRANSFER_USDT", "1"))
 POSITION_TOPUP_USDT = Decimal(os.getenv("POSITION_TOPUP_USDT", "50"))
@@ -29,7 +35,7 @@ POSITION_LOCK_FILE = os.getenv(
 
 
 if not API_KEY or not API_SECRET:
-    print("ERROR: Missing BYBIT_API_KEY or BYBIT_API_SECRET", flush=True)
+    print("ERROR: Missing hard-coded API_KEY or API_SECRET", flush=True)
     raise SystemExit(1)
 
 
@@ -548,6 +554,7 @@ def run_cycle():
 def main():
     log("Bybit Reserve Bot started on Render worker")
     log(f"Mode: {MODE}")
+    log(f"Testnet: {TESTNET}")
     log(f"Reserve USDT: {RESERVE_USDT}")
     log(f"Sleep seconds: {BOT_SLEEP_SEC}")
 
