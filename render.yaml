@@ -1,0 +1,26 @@
+services:
+  - type: worker
+    name: bybit-reserve-bot
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    envVars:
+      - key: BYBIT_MODE
+        value: live
+      - key: RESERVE_USDT
+        value: "501"
+      - key: MIN_TRANSFER_USDT
+        value: "1"
+      - key: POSITION_TOPUP_USDT
+        value: "50"
+      - key: LOSS_CLOSE_USDT
+        value: "70"
+      - key: BOT_SLEEP_SEC
+        value: "15"
+      - key: POSITION_LOCK_FILE
+        value: /tmp/bybit_position_topup.lock
+      - key: BYBIT_API_KEY
+        sync: false
+      - key: BYBIT_API_SECRET
+        sync: false
