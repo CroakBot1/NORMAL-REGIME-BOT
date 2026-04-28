@@ -1,0 +1,584 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>FullPack Panic Trader - Render Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <style>
+    :root {
+      --bg: #080b10;
+      --card: #101722;
+      --card2: #141d2b;
+      --text: #e9f0ff;
+      --muted: #8390a3;
+      --green: #33d17a;
+      --red: #ff5c73;
+      --yellow: #f6d365;
+      --blue: #6aa9ff;
+      --border: #263244;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at top left, rgba(54, 115, 255, 0.18), transparent 32rem),
+        radial-gradient(circle at top right, rgba(51, 209, 122, 0.12), transparent 28rem),
+        var(--bg);
+      color: var(--text);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    header {
+      padding: 24px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(8, 11, 16, 0.78);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 5;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0.04em;
+    }
+
+    .sub {
+      color: var(--muted);
+      margin-top: 6px;
+      font-size: 13px;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 18px;
+      padding: 18px;
+      max-width: 1500px;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 980px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: linear-gradient(180deg, var(--card), var(--card2));
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px;
+      box-shadow: 0 18px 45px rgba(0,0,0,.25);
+    }
+
+    .card h2 {
+      font-size: 14px;
+      margin: 0 0 14px;
+      letter-spacing: .08em;
+      color: #b9c5d8;
+      text-transform: uppercase;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin: 11px 0 5px;
+    }
+
+    input, select {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #080d15;
+      color: var(--text);
+      padding: 10px 12px;
+      outline: none;
+      font-size: 14px;
+    }
+
+    input[type="checkbox"] {
+      width: auto;
+      transform: scale(1.2);
+      margin-right: 8px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .check {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 12px;
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 13px;
+      padding: 11px 14px;
+      color: #061018;
+      font-weight: 800;
+      cursor: pointer;
+      background: var(--blue);
+      margin-top: 12px;
+    }
+
+    button.secondary {
+      background: #263244;
+      color: var(--text);
+    }
+
+    button.danger {
+      background: var(--red);
+      color: white;
+    }
+
+    button.green {
+      background: var(--green);
+      color: #061018;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .pill {
+      display: inline-flex;
+      padding: 5px 10px;
+      border-radius: 100px;
+      font-size: 12px;
+      font-weight: 800;
+      border: 1px solid var(--border);
+      background: #0a1019;
+      color: var(--muted);
+    }
+
+    .pill.green {
+      color: var(--green);
+      border-color: rgba(51,209,122,.5);
+    }
+
+    .pill.red {
+      color: var(--red);
+      border-color: rgba(255,92,115,.5);
+    }
+
+    .pill.yellow {
+      color: var(--yellow);
+      border-color: rgba(246,211,101,.5);
+    }
+
+    .grid3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    @media (max-width: 720px) {
+      .grid3 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .metric {
+      background: rgba(8, 13, 21, 0.76);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+    }
+
+    .metric .k {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .metric .v {
+      margin-top: 8px;
+      font-size: 22px;
+      font-weight: 900;
+      overflow-wrap: anywhere;
+    }
+
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #070b11;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      color: #cdd6e6;
+      max-height: 460px;
+      overflow: auto;
+      font-size: 12px;
+    }
+
+    .log {
+      border-top: 1px solid var(--border);
+      padding: 9px 0;
+      font-size: 12px;
+    }
+
+    .log .time {
+      color: var(--muted);
+    }
+
+    .warning {
+      border: 1px solid rgba(246,211,101,.4);
+      background: rgba(246,211,101,.08);
+      border-radius: 14px;
+      padding: 12px;
+      color: var(--yellow);
+      font-size: 13px;
+      margin-bottom: 14px;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>FULLPACK PANIC TRADER</h1>
+    <div class="sub">Render Web Service + Background Worker Control Panel</div>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>Controls</h2>
+
+      <div class="warning">
+        API keys are never entered here. Put BYBIT_API_KEY and BYBIT_API_SECRET in Render environment variables.
+      </div>
+
+      <label>Admin Token</label>
+      <input id="token" type="password" placeholder="ADMIN_TOKEN" />
+
+      <div class="row">
+        <div>
+          <label>Environment</label>
+          <select id="env">
+            <option value="DEMO">DEMO</option>
+            <option value="PROD">PROD</option>
+          </select>
+        </div>
+        <div>
+          <label>Symbol</label>
+          <input id="symbol" value="BTCUSDT" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Base Interval</label>
+          <input id="baseInterval" value="15" />
+        </div>
+        <div>
+          <label>Aux Interval</label>
+          <input id="auxInterval" value="60" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Leverage</label>
+          <input id="leverage" type="number" step="0.1" />
+        </div>
+        <div>
+          <label>Fixed Qty</label>
+          <input id="fixedQty" type="number" step="0.001" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Stake %</label>
+          <input id="stakePct" type="number" step="0.1" />
+        </div>
+        <div>
+          <label>Reserve USDT</label>
+          <input id="reserveUtaUsdt" type="number" step="0.1" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>TP %</label>
+          <input id="tpPct" type="number" step="0.1" />
+        </div>
+        <div>
+          <label>SL %</label>
+          <input id="slPct" type="number" step="0.1" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Trading Threshold</label>
+          <input id="tradingThreshold" type="number" step="0.01" />
+        </div>
+        <div>
+          <label>Hold Threshold</label>
+          <input id="holdThreshold" type="number" step="0.01" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>ADX Threshold</label>
+          <input id="adxThreshold" type="number" step="0.1" />
+        </div>
+        <div>
+          <label>Loop Seconds</label>
+          <input id="loopSeconds" type="number" step="1" />
+        </div>
+      </div>
+
+      <label>Cooldown Minutes</label>
+      <input id="cooldownMinutes" type="number" step="1" />
+
+      <label class="check">
+        <input id="autoEnabled" type="checkbox" />
+        Auto Enabled
+      </label>
+
+      <label class="check">
+        <input id="allowRealOrders" type="checkbox" />
+        Allow Real Orders
+      </label>
+
+      <label class="check">
+        <input id="forceEntry" type="checkbox" />
+        Force Entry
+      </label>
+
+      <button class="green" onclick="saveConfig()">Save Config</button>
+
+      <div class="actions">
+        <button class="secondary" onclick="loadState()">Refresh</button>
+        <button onclick="runOnce()">Scan Only</button>
+      </div>
+
+      <button class="danger" onclick="runOrder()">Run With Order Permission</button>
+    </section>
+
+    <section>
+      <div class="grid3">
+        <div class="metric">
+          <div class="k">Symbol</div>
+          <div class="v" id="mSymbol">-</div>
+        </div>
+        <div class="metric">
+          <div class="k">Price</div>
+          <div class="v" id="mPrice">-</div>
+        </div>
+        <div class="metric">
+          <div class="k">Final Decision</div>
+          <div class="v" id="mFinal">-</div>
+        </div>
+      </div>
+
+      <br />
+
+      <div class="card">
+        <h2>Latest Gate Snapshot</h2>
+        <div id="badges"></div>
+        <pre id="snapshot">No data yet.</pre>
+      </div>
+
+      <br />
+
+      <div class="card">
+        <h2>Logs</h2>
+        <div id="logs"></div>
+      </div>
+    </section>
+  </main>
+
+<script>
+const fields = [
+  "env",
+  "symbol",
+  "baseInterval",
+  "auxInterval",
+  "leverage",
+  "fixedQty",
+  "stakePct",
+  "reserveUtaUsdt",
+  "tpPct",
+  "slPct",
+  "tradingThreshold",
+  "holdThreshold",
+  "adxThreshold",
+  "loopSeconds",
+  "cooldownMinutes"
+];
+
+const bools = ["autoEnabled", "allowRealOrders", "forceEntry"];
+
+function token() {
+  return document.getElementById("token").value || localStorage.getItem("adminToken") || "";
+}
+
+function headers() {
+  const t = token();
+  if (t) localStorage.setItem("adminToken", t);
+  return {
+    "Content-Type": "application/json",
+    "X-Admin-Token": t
+  };
+}
+
+function setPill(text, cls) {
+  return `<span class="pill ${cls || ""}">${text}</span>`;
+}
+
+async function loadState() {
+  const t = token();
+  if (!t) {
+    document.getElementById("snapshot").textContent = "Enter ADMIN_TOKEN first.";
+    return;
+  }
+
+  const res = await fetch("/api/state", { headers: headers() });
+  const data = await res.json();
+
+  if (!res.ok) {
+    document.getElementById("snapshot").textContent = JSON.stringify(data, null, 2);
+    return;
+  }
+
+  const cfg = data.config;
+  for (const f of fields) {
+    if (document.getElementById(f)) document.getElementById(f).value = cfg[f] ?? "";
+  }
+  for (const b of bools) {
+    document.getElementById(b).checked = !!cfg[b];
+  }
+
+  const latest = data.latest;
+  document.getElementById("mSymbol").textContent = cfg.symbol || "-";
+  document.getElementById("mPrice").textContent = latest?.price ? Number(latest.price).toFixed(2) : "-";
+  document.getElementById("mFinal").textContent = latest?.final_decision || "-";
+
+  if (latest) {
+    const details = latest.details || {};
+    const final = latest.final_decision;
+    const cls =
+      final === "ALLOW_LONG" ? "green" :
+      final === "ALLOW_SHORT" ? "red" :
+      "yellow";
+
+    document.getElementById("badges").innerHTML = [
+      setPill(final, cls),
+      setPill(details.raw?.regime || "NO_REGIME"),
+      setPill("ADX " + Number(details.adxGate?.metrics?.adx || 0).toFixed(2)),
+      setPill(details.blockedReason || latest.details?.blockedReason || "NO_BLOCK")
+    ].join(" ");
+
+    document.getElementById("snapshot").textContent = JSON.stringify(latest, null, 2);
+  } else {
+    document.getElementById("snapshot").textContent = "No snapshot yet.";
+  }
+
+  document.getElementById("logs").innerHTML = data.logs.map(l => `
+    <div class="log">
+      <div><strong>${l.level}</strong> <span class="time">${new Date(l.created_at).toLocaleString()}</span></div>
+      <div>${escapeHtml(l.message)}</div>
+    </div>
+  `).join("");
+}
+
+async function saveConfig() {
+  const body = {};
+
+  for (const f of fields) {
+    const el = document.getElementById(f);
+    let v = el.value;
+
+    if ([
+      "leverage",
+      "fixedQty",
+      "stakePct",
+      "reserveUtaUsdt",
+      "tpPct",
+      "slPct",
+      "tradingThreshold",
+      "holdThreshold",
+      "adxThreshold",
+      "loopSeconds",
+      "cooldownMinutes"
+    ].includes(f)) {
+      v = Number(v);
+    }
+
+    body[f] = v;
+  }
+
+  for (const b of bools) {
+    body[b] = document.getElementById(b).checked;
+  }
+
+  const res = await fetch("/api/config", {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify(body)
+  });
+
+  const data = await res.json();
+  if (!res.ok) alert(JSON.stringify(data, null, 2));
+  await loadState();
+}
+
+async function runOnce() {
+  document.getElementById("snapshot").textContent = "Running scan...";
+  const res = await fetch("/api/run-once", {
+    method: "POST",
+    headers: headers(),
+    body: "{}"
+  });
+  const data = await res.json();
+  document.getElementById("snapshot").textContent = JSON.stringify(data, null, 2);
+  await loadState();
+}
+
+async function runOrder() {
+  const ok = confirm("This can place a live/demo order only if Allow Real Orders is enabled. Continue?");
+  if (!ok) return;
+
+  document.getElementById("snapshot").textContent = "Running order-permission scan...";
+  const res = await fetch("/api/run-order", {
+    method: "POST",
+    headers: headers(),
+    body: "{}"
+  });
+  const data = await res.json();
+  document.getElementById("snapshot").textContent = JSON.stringify(data, null, 2);
+  await loadState();
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+document.getElementById("token").value = localStorage.getItem("adminToken") || "";
+loadState();
+setInterval(loadState, 15000);
+</script>
+</body>
+</html>
