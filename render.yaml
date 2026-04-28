@@ -9,7 +9,7 @@ services:
       - key: BYBIT_MODE
         value: live
       - key: RESERVE_USDT
-        value: "501"
+        value: "401"
       - key: MIN_TRANSFER_USDT
         value: "1"
       - key: POSITION_TOPUP_USDT
