@@ -7,7 +7,9 @@
   "scripts": {
     "start": "node src/server.js",
     "worker": "node src/worker.js",
-    "dev": "node src/server.js"
+    "dev": "nodemon src/server.js",
+    "test": "jest",
+    "lint": "eslint ."
   },
   "engines": {
     "node": ">=20"
@@ -16,5 +18,16 @@
     "dotenv": "^16.4.7",
     "express": "^4.18.3",
     "pg": "^8.11.5"
-  }
+  },
+  "devDependencies": {
+    "jest": "^29.5.0",
+    "eslint": "^8.45.0",
+    "nodemon": "^2.0.22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CroakBot1/NORMAL-REGIME-BOT.git"
+  },
+  "author": "Your Name",
+  "license": "MIT"
 }
