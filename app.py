@@ -16,7 +16,12 @@ COIN = "USDT"
 RESERVE_USDT = Decimal(os.getenv("RESERVE_USDT", "501"))
 MIN_TRANSFER_USDT = Decimal(os.getenv("MIN_TRANSFER_USDT", "1"))
 POSITION_TOPUP_USDT = Decimal(os.getenv("POSITION_TOPUP_USDT", "50"))
-LOSS_CLOSE_USDT = Decimal(os.getenv("LOSS_CLOSE_USDT", "70"))
+
+# Use positive value in env.
+# Example: LOSS_CLOSE_USDT=0.01 means close when unrealisedPnl <= -0.01
+# If you put negative value, code still converts it safely with -abs().
+LOSS_CLOSE_USDT = Decimal(os.getenv("LOSS_CLOSE_USDT", "0.01"))
+
 BOT_SLEEP_SEC = int(os.getenv("BOT_SLEEP_SEC", "15"))
 
 POSITION_LOCK_FILE = os.getenv(
@@ -27,16 +32,16 @@ POSITION_LOCK_FILE = os.getenv(
 
 # ============================================================
 # COPY TRADE SETTINGS
-# Existing reserve/top-up/loss-close logic remains unchanged.
-# This copy-trade layer runs before the normal account cycle.
+# Account #1 = leader.
+# Accounts #2 to #50 = followers.
 # ============================================================
 
 COPY_TRADE_ENABLED = os.getenv("COPY_TRADE_ENABLED", "false").strip().lower() == "true"
 COPY_TRADE_LEADER_ACCOUNT = int(os.getenv("COPY_TRADE_LEADER_ACCOUNT", "1"))
 COPY_TRADE_FOLLOWERS_START = int(os.getenv("COPY_TRADE_FOLLOWERS_START", "2"))
 COPY_TRADE_FOLLOWERS_END = int(os.getenv("COPY_TRADE_FOLLOWERS_END", "50"))
-COPY_TRADE_LEVERAGE = Decimal(os.getenv("COPY_TRADE_LEVERAGE", "60"))
-COPY_TRADE_WALLET_PCT = Decimal(os.getenv("COPY_TRADE_WALLET_PCT", "0.90"))
+COPY_TRADE_LEVERAGE = Decimal(os.getenv("COPY_TRADE_LEVERAGE", "3"))
+COPY_TRADE_WALLET_PCT = Decimal(os.getenv("COPY_TRADE_WALLET_PCT", "0.10"))
 COPY_TRADE_MIN_ORDER_USDT = Decimal(os.getenv("COPY_TRADE_MIN_ORDER_USDT", "5"))
 COPY_TRADE_REQUIRE_NO_FOLLOWER_POSITION = (
     os.getenv("COPY_TRADE_REQUIRE_NO_FOLLOWER_POSITION", "true").strip().lower() == "true"
@@ -83,23 +88,57 @@ def require_ok(resp, context="request"):
     return resp
 
 
+def is_placeholder_credential(value: str) -> bool:
+    """
+    Prevent fake template values from being loaded as real API keys.
+
+    Examples skipped:
+      your_api_key_2_here
+      your_api_secret_2_here
+      changeme
+      replace_me
+    """
+    v = (value or "").strip().lower()
+
+    if not v:
+        return True
+
+    placeholders = (
+        "your_api_key",
+        "your_api_secret",
+        "your_first_api",
+        "your_second_api",
+        "your_third_api",
+        "your_",
+        "_here",
+        "changeme",
+        "change_me",
+        "replace_me",
+        "replace",
+        "example",
+        "sample",
+    )
+
+    return any(p in v for p in placeholders)
+
+
 def load_bybit_accounts():
     """
     Loads up to 50 Bybit API credential pairs.
 
-    Required format:
+    Valid:
       BYBIT_API_KEY_1
       BYBIT_API_SECRET_1
+
+    Optional:
       BYBIT_API_KEY_2
       BYBIT_API_SECRET_2
       ...
       BYBIT_API_KEY_50
       BYBIT_API_SECRET_50
 
-    Important:
-    - Numbering must be continuous.
-    - Do not skip account numbers.
-    - Example: if account 2 is missing, account 3 to 50 will not be loaded.
+    Placeholder values are skipped so account #2 to #50 templates
+    will not break account #1.
     """
     accounts = []
 
@@ -107,12 +146,16 @@ def load_bybit_accounts():
         key = os.getenv(f"BYBIT_API_KEY_{i}", "").strip()
         secret = os.getenv(f"BYBIT_API_SECRET_{i}", "").strip()
 
-        if not key and not secret:
-            break
+        key_is_placeholder = is_placeholder_credential(key)
+        secret_is_placeholder = is_placeholder_credential(secret)
 
-        if not key or not secret:
+        if key_is_placeholder and secret_is_placeholder:
+            continue
+
+        if key_is_placeholder or secret_is_placeholder:
             raise RuntimeError(
-                f"Missing BYBIT_API_KEY_{i} or BYBIT_API_SECRET_{i}"
+                f"Invalid or missing BYBIT_API_KEY_{i} / BYBIT_API_SECRET_{i}. "
+                f"Remove placeholders or set real credentials."
             )
 
         session = HTTP(
@@ -131,8 +174,8 @@ def load_bybit_accounts():
 
     if not accounts:
         raise RuntimeError(
-            "No Bybit API credentials found. "
-            "Set BYBIT_API_KEY_1 and BYBIT_API_SECRET_1."
+            "No valid Bybit API credentials found. "
+            "Set BYBIT_API_KEY_1 and BYBIT_API_SECRET_1 in Render Environment."
         )
 
     return accounts
@@ -344,11 +387,6 @@ def round_qty_by_step(qty: Decimal, step: Decimal) -> Decimal:
         return qty
 
 
-# ============================================================
-# COPY TRADE HELPERS
-# Added logic only. Existing functions below remain preserved.
-# ============================================================
-
 def get_symbol_last_price(session, category: str, symbol: str) -> Decimal:
     r = require_ok(
         session.get_tickers(category=category, symbol=symbol),
@@ -488,7 +526,7 @@ def close_position_market(session, category: str, symbol: str, side: str, size: 
             "symbol": symbol,
             "side": close_side,
             "orderType": "Market",
-            "qty": str(qty),
+            "qty": fmt_amount(qty),
             "reduceOnly": True,
             "closeOnTrigger": True,
         }
@@ -498,6 +536,8 @@ def close_position_market(session, category: str, symbol: str, side: str, size: 
                 params["positionIdx"] = int(position_idx)
             except Exception:
                 pass
+
+        log(f"CLOSE PARAMS -> {params}")
 
         resp = require_ok(
             session.place_order(**params),
@@ -546,8 +586,17 @@ def get_open_positions(session):
             result = r.get("result", {}) or {}
             plist = result.get("list", []) or []
 
+            log(f"GET POSITIONS -> category={category} raw_count={len(plist)}")
+
             for p in plist:
                 size = D(p.get("size"))
+
+                log(
+                    f"RAW POSITION -> category={category} "
+                    f"symbol={p.get('symbol')} side={p.get('side')} "
+                    f"size={p.get('size')} positionIdx={p.get('positionIdx')} "
+                    f"unrealisedPnl={p.get('unrealisedPnl') or p.get('unrealizedPnl')}"
+                )
 
                 if size <= 0:
                     continue
@@ -577,6 +626,9 @@ def get_open_positions(session):
 def monitor_and_close_on_loss(session, open_positions):
     trigger_loss = -abs(LOSS_CLOSE_USDT)
 
+    log(f"LOSS CLOSE TRIGGER = {trigger_loss} {COIN}")
+    log(f"OPEN POSITIONS COUNT = {len(open_positions)}")
+
     for p in open_positions:
         category = p["category"]
         sym = p["symbol"]
@@ -586,16 +638,19 @@ def monitor_and_close_on_loss(session, open_positions):
         unrealised_pnl = p["unrealised_pnl"]
 
         log(
-            f"POSITION CHECK -> {category} {sym} {side} "
-            f"size={size} unrealisedPnl={unrealised_pnl}"
+            f"POSITION CHECK -> category={category} symbol={sym} side={side} "
+            f"size={size} positionIdx={position_idx} "
+            f"unrealisedPnl={unrealised_pnl} trigger={trigger_loss}"
         )
 
         if unrealised_pnl <= trigger_loss:
             log(
-                f"LOSS LIMIT HIT -> {category} {sym} {side} "
+                f"LOSS LIMIT HIT -> closing now: {category} {sym} {side} "
                 f"size={size} pnl={unrealised_pnl}"
             )
             close_position_market(session, category, sym, side, size, position_idx)
+        else:
+            log(f"NO CLOSE -> pnl {unrealised_pnl} is not <= trigger {trigger_loss}")
 
 
 def transfer_excess_to_fund(session, open_positions):
@@ -701,16 +756,7 @@ def transfer_fund_to_unified_when_position_once(session, open_positions, lock_fi
         traceback.print_exc()
 
 
-# ============================================================
-# COPY TRADE MAIN LOGIC
-# This does not remove or rewrite the old reserve bot functions.
-# ============================================================
-
 def pick_leader_position(leader_positions):
-    """
-    Uses the first open position from account #1 as the position to copy.
-    If account #1 has multiple positions, this bot copies only the first one.
-    """
     if not leader_positions:
         return None
 
@@ -745,8 +791,8 @@ def open_copy_position_for_follower(follower_account, leader_position):
 
     if category != "linear":
         log(
-            f"{account_name} COPY SKIP: only linear USDT perps are supported "
-            f"for 90% wallet sizing. Got category={category}"
+            f"{account_name} COPY SKIP: only linear USDT perps are supported. "
+            f"Got category={category}"
         )
         return
 
@@ -809,6 +855,8 @@ def open_copy_position_for_follower(follower_account, leader_position):
         except Exception:
             pass
 
+    log(f"{account_name} COPY PARAMS -> {params}")
+
     resp = require_ok(
         session.place_order(**params),
         f"{account_name} copy place_order {category} {symbol}"
@@ -817,7 +865,7 @@ def open_copy_position_for_follower(follower_account, leader_position):
     log(
         f"{account_name} COPY ORDER SENT -> "
         f"{category} {symbol} {side} qty={qty} "
-        f"wallet={wallet_usdt} margin90={margin_to_use} "
+        f"wallet={wallet_usdt} margin={margin_to_use} "
         f"notional={notional_to_open} leverage={COPY_TRADE_LEVERAGE}x"
     )
     log(f"{account_name} COPY RESP: {resp}")
@@ -890,6 +938,28 @@ def run_copy_trade_cycle(accounts):
             traceback.print_exc()
 
 
+def run_loss_close_priority(accounts):
+    """
+    Runs close-loss check before copy-trade and before reserve/top-up cycle.
+    """
+    log("===== PRIORITY LOSS CLOSE CHECK START =====")
+
+    for account in accounts:
+        session = account["session"]
+        account_name = account["name"]
+
+        try:
+            open_positions = get_open_positions(session)
+            log(f"{account_name} PRIORITY CLOSE CHECK: positions={len(open_positions)}")
+            monitor_and_close_on_loss(session, open_positions)
+
+        except Exception as e:
+            log(f"{account_name} PRIORITY CLOSE ERROR: {e}")
+            traceback.print_exc()
+
+    log("===== PRIORITY LOSS CLOSE CHECK END =====")
+
+
 def run_cycle(account):
     session = account["session"]
     lock_file = account["lock_file"]
@@ -939,8 +1009,11 @@ def main():
     log(f"Mode: {MODE}")
     log(f"Testnet: {TESTNET}")
     log(f"Reserve USDT: {RESERVE_USDT}")
+    log(f"Loss close USDT setting: {LOSS_CLOSE_USDT}")
+    log(f"Effective loss trigger: {-abs(LOSS_CLOSE_USDT)}")
     log(f"Sleep seconds: {BOT_SLEEP_SEC}")
     log(f"Loaded accounts: {len(accounts)}")
+    log(f"Loaded account indexes: {[a['index'] for a in accounts]}")
     log(f"Copy trade enabled: {COPY_TRADE_ENABLED}")
     log(f"Copy trade leader: account_{COPY_TRADE_LEADER_ACCOUNT}")
     log(f"Copy trade followers: {COPY_TRADE_FOLLOWERS_START} to {COPY_TRADE_FOLLOWERS_END}")
@@ -948,6 +1021,12 @@ def main():
     log(f"Copy trade wallet pct: {COPY_TRADE_WALLET_PCT}")
 
     while True:
+        try:
+            run_loss_close_priority(accounts)
+        except Exception as e:
+            log(f"PRIORITY CLOSE LOOP ERROR: {e}")
+            traceback.print_exc()
+
         try:
             run_copy_trade_cycle(accounts)
         except Exception as e:
