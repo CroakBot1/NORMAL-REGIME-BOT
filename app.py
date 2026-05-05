@@ -11,17 +11,8 @@ from pybit.unified_trading import HTTP
 MODE = os.getenv("BYBIT_MODE", "live").strip().lower()
 TESTNET = MODE != "live"
 
-# ============================================================
-# HARD CODED BYBIT API CREDENTIALS
-# Paste your NEW Bybit API key and secret here.
-# Warning: Do not use a public GitHub repo with hard-coded keys.
-# ============================================================
-API_KEY = "Mj8lClA90BOjNUidPI"
-API_SECRET = "etAdJ9i1gEhFIU1YNPP1nUzeXsPfaXZaRcmx"
-
 COIN = "USDT"
 
-# These values still come from Render Environment Variables or .env.
 RESERVE_USDT = Decimal(os.getenv("RESERVE_USDT", "501"))
 MIN_TRANSFER_USDT = Decimal(os.getenv("MIN_TRANSFER_USDT", "1"))
 POSITION_TOPUP_USDT = Decimal(os.getenv("POSITION_TOPUP_USDT", "50"))
@@ -34,16 +25,26 @@ POSITION_LOCK_FILE = os.getenv(
 ).strip()
 
 
-if not API_KEY or not API_SECRET:
-    print("ERROR: Missing hard-coded API_KEY or API_SECRET", flush=True)
-    raise SystemExit(1)
+# ============================================================
+# COPY TRADE SETTINGS
+# Existing reserve/top-up/loss-close logic remains unchanged.
+# This copy-trade layer runs before the normal account cycle.
+# ============================================================
 
-
-session = HTTP(
-    testnet=TESTNET,
-    api_key=API_KEY,
-    api_secret=API_SECRET,
+COPY_TRADE_ENABLED = os.getenv("COPY_TRADE_ENABLED", "false").strip().lower() == "true"
+COPY_TRADE_LEADER_ACCOUNT = int(os.getenv("COPY_TRADE_LEADER_ACCOUNT", "1"))
+COPY_TRADE_FOLLOWERS_START = int(os.getenv("COPY_TRADE_FOLLOWERS_START", "2"))
+COPY_TRADE_FOLLOWERS_END = int(os.getenv("COPY_TRADE_FOLLOWERS_END", "50"))
+COPY_TRADE_LEVERAGE = Decimal(os.getenv("COPY_TRADE_LEVERAGE", "3"))
+COPY_TRADE_WALLET_PCT = Decimal(os.getenv("COPY_TRADE_WALLET_PCT", "0.90"))
+COPY_TRADE_MIN_ORDER_USDT = Decimal(os.getenv("COPY_TRADE_MIN_ORDER_USDT", "5"))
+COPY_TRADE_REQUIRE_NO_FOLLOWER_POSITION = (
+    os.getenv("COPY_TRADE_REQUIRE_NO_FOLLOWER_POSITION", "true").strip().lower() == "true"
 )
+COPY_TRADE_LOCK_PREFIX = os.getenv(
+    "COPY_TRADE_LOCK_PREFIX",
+    "/tmp/bybit_copy_trade.lock"
+).strip()
 
 
 def log(msg):
@@ -82,25 +83,80 @@ def require_ok(resp, context="request"):
     return resp
 
 
-def position_lock_exists() -> bool:
+def load_bybit_accounts():
+    """
+    Loads up to 50 Bybit API credential pairs.
+
+    Required format:
+      BYBIT_API_KEY_1
+      BYBIT_API_SECRET_1
+      BYBIT_API_KEY_2
+      BYBIT_API_SECRET_2
+      ...
+      BYBIT_API_KEY_50
+      BYBIT_API_SECRET_50
+
+    Important:
+    - Numbering must be continuous.
+    - Do not skip account numbers.
+    - Example: if account 2 is missing, account 3 to 50 will not be loaded.
+    """
+    accounts = []
+
+    for i in range(1, 51):
+        key = os.getenv(f"BYBIT_API_KEY_{i}", "").strip()
+        secret = os.getenv(f"BYBIT_API_SECRET_{i}", "").strip()
+
+        if not key and not secret:
+            break
+
+        if not key or not secret:
+            raise RuntimeError(
+                f"Missing BYBIT_API_KEY_{i} or BYBIT_API_SECRET_{i}"
+            )
+
+        session = HTTP(
+            testnet=TESTNET,
+            api_key=key,
+            api_secret=secret,
+        )
+
+        accounts.append({
+            "index": i,
+            "name": f"account_{i}",
+            "session": session,
+            "lock_file": f"{POSITION_LOCK_FILE}.{i}",
+            "copy_lock_file": f"{COPY_TRADE_LOCK_PREFIX}.{i}",
+        })
+
+    if not accounts:
+        raise RuntimeError(
+            "No Bybit API credentials found. "
+            "Set BYBIT_API_KEY_1 and BYBIT_API_SECRET_1."
+        )
+
+    return accounts
+
+
+def position_lock_exists(lock_file: str) -> bool:
     try:
-        return os.path.exists(POSITION_LOCK_FILE)
+        return os.path.exists(lock_file)
     except Exception:
         return False
 
 
-def create_position_lock():
+def create_position_lock(lock_file: str):
     try:
-        with open(POSITION_LOCK_FILE, "w", encoding="utf-8") as f:
+        with open(lock_file, "w", encoding="utf-8") as f:
             f.write(str(datetime.now()))
     except Exception as e:
         log(f"FAILED TO CREATE LOCK FILE: {e}")
 
 
-def clear_position_lock():
+def clear_position_lock(lock_file: str):
     try:
-        if os.path.exists(POSITION_LOCK_FILE):
-            os.remove(POSITION_LOCK_FILE)
+        if os.path.exists(lock_file):
+            os.remove(lock_file)
             log("POSITION LOCK CLEARED")
     except Exception as e:
         log(f"FAILED TO CLEAR LOCK FILE: {e}")
@@ -158,7 +214,7 @@ def extract_coin_balance_from_any_result(resp, coin=COIN) -> Decimal:
     return Decimal("0")
 
 
-def get_unified_usdt_wallet() -> Decimal:
+def get_unified_usdt_wallet(session) -> Decimal:
     r = require_ok(
         session.get_wallet_balance(accountType="UNIFIED", coin=COIN),
         "get_wallet_balance UNIFIED"
@@ -175,7 +231,7 @@ def get_unified_usdt_wallet() -> Decimal:
     raise RuntimeError(f"UNIFIED {COIN} walletBalance not found in response: {r}")
 
 
-def get_fund_usdt_wallet() -> Decimal:
+def get_fund_usdt_wallet(session) -> Decimal:
     errors = []
 
     try:
@@ -203,7 +259,7 @@ def get_fund_usdt_wallet() -> Decimal:
     raise RuntimeError(" | ".join(errors))
 
 
-def get_transferable_amount_unified() -> Decimal:
+def get_transferable_amount_unified(session) -> Decimal:
     errors = []
 
     try:
@@ -257,7 +313,7 @@ def get_transferable_amount_unified() -> Decimal:
     return Decimal("0")
 
 
-def get_qty_step(symbol: str, category: str = "linear") -> Decimal:
+def get_qty_step(session, symbol: str, category: str = "linear") -> Decimal:
     try:
         r = require_ok(
             session.get_instruments_info(category=category, symbol=symbol),
@@ -288,9 +344,137 @@ def round_qty_by_step(qty: Decimal, step: Decimal) -> Decimal:
         return qty
 
 
-def close_position_market(category: str, symbol: str, side: str, size: Decimal, position_idx=None):
+# ============================================================
+# COPY TRADE HELPERS
+# Added logic only. Existing functions below remain preserved.
+# ============================================================
+
+def get_symbol_last_price(session, category: str, symbol: str) -> Decimal:
+    r = require_ok(
+        session.get_tickers(category=category, symbol=symbol),
+        f"get_tickers {category} {symbol}"
+    )
+
+    items = r.get("result", {}).get("list", []) or []
+    if not items:
+        raise RuntimeError(f"No ticker found for {category} {symbol}")
+
+    item = items[0]
+    price = (
+        item.get("lastPrice")
+        or item.get("markPrice")
+        or item.get("indexPrice")
+    )
+
+    price_d = D(price)
+    if price_d <= 0:
+        raise RuntimeError(f"Invalid ticker price for {symbol}: {item}")
+
+    return price_d
+
+
+def get_lot_size_filter(session, symbol: str, category: str = "linear"):
     try:
-        qty_step = get_qty_step(symbol, category)
+        r = require_ok(
+            session.get_instruments_info(category=category, symbol=symbol),
+            f"get_instruments_info {category} {symbol}"
+        )
+
+        items = r.get("result", {}).get("list", []) or []
+        if not items:
+            return {
+                "qty_step": Decimal("0.001"),
+                "min_order_qty": Decimal("0.001"),
+                "max_mkt_order_qty": Decimal("999999999"),
+            }
+
+        lot = items[0].get("lotSizeFilter", {}) or {}
+
+        return {
+            "qty_step": D(lot.get("qtyStep", "0.001")),
+            "min_order_qty": D(lot.get("minOrderQty", "0.001")),
+            "max_mkt_order_qty": D(
+                lot.get("maxMktOrderQty")
+                or lot.get("maxOrderQty")
+                or "999999999"
+            ),
+        }
+
+    except Exception as e:
+        log(f"get_lot_size_filter failed for {symbol}: {e}")
+        return {
+            "qty_step": Decimal("0.001"),
+            "min_order_qty": Decimal("0.001"),
+            "max_mkt_order_qty": Decimal("999999999"),
+        }
+
+
+def set_symbol_leverage(session, category: str, symbol: str, leverage: Decimal):
+    lev = fmt_amount(leverage)
+
+    try:
+        resp = session.set_leverage(
+            category=category,
+            symbol=symbol,
+            buyLeverage=lev,
+            sellLeverage=lev,
+        )
+
+        if isinstance(resp, dict) and resp.get("retCode", 0) == 0:
+            log(f"LEVERAGE SET -> {category} {symbol} {lev}x")
+            return
+
+        ret_msg = str((resp or {}).get("retMsg", "")).lower()
+
+        if "not modified" in ret_msg or "same" in ret_msg:
+            log(f"LEVERAGE ALREADY SET -> {category} {symbol} {lev}x")
+            return
+
+        require_ok(resp, f"set_leverage {category} {symbol}")
+
+    except Exception as e:
+        log(f"SET LEVERAGE WARNING -> {category} {symbol} {lev}x: {e}")
+
+
+def copy_trade_signature(position) -> str:
+    return (
+        f"{position.get('category')}|"
+        f"{position.get('symbol')}|"
+        f"{position.get('side')}|"
+        f"{position.get('position_idx')}"
+    )
+
+
+def read_text_file(path: str) -> str:
+    try:
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                return f.read().strip()
+    except Exception:
+        pass
+
+    return ""
+
+
+def write_text_file(path: str, text: str):
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(text)
+    except Exception as e:
+        log(f"FAILED TO WRITE FILE {path}: {e}")
+
+
+def remove_file_if_exists(path: str):
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+    except Exception as e:
+        log(f"FAILED TO REMOVE FILE {path}: {e}")
+
+
+def close_position_market(session, category: str, symbol: str, side: str, size: Decimal, position_idx=None):
+    try:
+        qty_step = get_qty_step(session, symbol, category)
         qty = round_qty_by_step(size, qty_step)
 
         if qty <= 0:
@@ -328,7 +512,7 @@ def close_position_market(category: str, symbol: str, side: str, size: Decimal, 
         traceback.print_exc()
 
 
-def get_open_positions():
+def get_open_positions(session):
     checks = [
         ("linear", {"settleCoin": "USDT"}),
         ("inverse", {}),
@@ -390,7 +574,7 @@ def get_open_positions():
     return found
 
 
-def monitor_and_close_on_loss(open_positions):
+def monitor_and_close_on_loss(session, open_positions):
     trigger_loss = -abs(LOSS_CLOSE_USDT)
 
     for p in open_positions:
@@ -411,21 +595,21 @@ def monitor_and_close_on_loss(open_positions):
                 f"LOSS LIMIT HIT -> {category} {sym} {side} "
                 f"size={size} pnl={unrealised_pnl}"
             )
-            close_position_market(category, sym, side, size, position_idx)
+            close_position_market(session, category, sym, side, size, position_idx)
 
 
-def transfer_excess_to_fund(open_positions):
+def transfer_excess_to_fund(session, open_positions):
     if open_positions:
         log("SKIP TRANSFER: naay open position")
         return
 
-    wallet_usdt = get_unified_usdt_wallet()
-    transferable = get_transferable_amount_unified()
+    wallet_usdt = get_unified_usdt_wallet(session)
+    transferable = get_transferable_amount_unified(session)
     excess = wallet_usdt - RESERVE_USDT
 
     log(f"UNIFIED walletBalance = {wallet_usdt} {COIN}")
-    log(f"Transferable amount = {transferable} {COIN}")
-    log(f"Reserve target      = {RESERVE_USDT} {COIN}")
+    log(f"Transferable amount   = {transferable} {COIN}")
+    log(f"Reserve target        = {RESERVE_USDT} {COIN}")
 
     if excess <= 0:
         log("NO TRANSFER: walay subra sa reserve")
@@ -462,10 +646,10 @@ def transfer_excess_to_fund(open_positions):
         traceback.print_exc()
 
 
-def transfer_fund_to_unified_when_position_once(open_positions):
+def transfer_fund_to_unified_when_position_once(session, open_positions, lock_file):
     if not open_positions:
-        if position_lock_exists():
-            clear_position_lock()
+        if position_lock_exists(lock_file):
+            clear_position_lock(lock_file)
 
         log("NO POSITION: skip FUND -> UNIFIED top-up")
         return
@@ -476,12 +660,12 @@ def transfer_fund_to_unified_when_position_once(open_positions):
             f"{p['symbol']} {p['side']} size={p['size']}"
         )
 
-    if position_lock_exists():
+    if position_lock_exists(lock_file):
         log("TOP-UP ALREADY DONE FOR CURRENT POSITION CYCLE")
         return
 
     amount = q2(POSITION_TOPUP_USDT)
-    fund_wallet = get_fund_usdt_wallet()
+    fund_wallet = get_fund_usdt_wallet(session)
 
     log(f"FUND walletBalance   = {fund_wallet} {COIN}")
     log(f"Position top-up need = {amount} {COIN}")
@@ -509,7 +693,7 @@ def transfer_fund_to_unified_when_position_once(open_positions):
         log(f"TRANSFER SUCCESS: {amount} {COIN} FUND -> UNIFIED")
         log(f"RESP: {resp}")
 
-        create_position_lock()
+        create_position_lock(lock_file)
         log("POSITION LOCK CREATED")
 
     except Exception as e:
@@ -517,49 +701,266 @@ def transfer_fund_to_unified_when_position_once(open_positions):
         traceback.print_exc()
 
 
-def run_cycle():
+# ============================================================
+# COPY TRADE MAIN LOGIC
+# This does not remove or rewrite the old reserve bot functions.
+# ============================================================
+
+def pick_leader_position(leader_positions):
+    """
+    Uses the first open position from account #1 as the position to copy.
+    If account #1 has multiple positions, this bot copies only the first one.
+    """
+    if not leader_positions:
+        return None
+
+    return leader_positions[0]
+
+
+def follower_has_same_position(follower_positions, leader_position) -> bool:
+    leader_symbol = leader_position["symbol"]
+    leader_side = leader_position["side"]
+    leader_category = leader_position["category"]
+
+    for p in follower_positions:
+        if (
+            p["category"] == leader_category
+            and p["symbol"] == leader_symbol
+            and p["side"] == leader_side
+            and p["size"] > 0
+        ):
+            return True
+
+    return False
+
+
+def open_copy_position_for_follower(follower_account, leader_position):
+    session = follower_account["session"]
+    account_name = follower_account["name"]
+
+    category = leader_position["category"]
+    symbol = leader_position["symbol"]
+    side = leader_position["side"]
+    position_idx = leader_position.get("position_idx")
+
+    if category != "linear":
+        log(
+            f"{account_name} COPY SKIP: only linear USDT perps are supported "
+            f"for 90% wallet sizing. Got category={category}"
+        )
+        return
+
+    follower_positions = get_open_positions(session)
+
+    if COPY_TRADE_REQUIRE_NO_FOLLOWER_POSITION and follower_positions:
+        log(f"{account_name} COPY SKIP: follower already has open position")
+        return
+
+    if follower_has_same_position(follower_positions, leader_position):
+        log(f"{account_name} COPY SKIP: same position already exists")
+        return
+
+    wallet_usdt = get_unified_usdt_wallet(session)
+    margin_to_use = q2(wallet_usdt * COPY_TRADE_WALLET_PCT)
+    notional_to_open = q2(margin_to_use * COPY_TRADE_LEVERAGE)
+
+    if margin_to_use < COPY_TRADE_MIN_ORDER_USDT:
+        log(
+            f"{account_name} COPY SKIP: margin too small "
+            f"({margin_to_use} < {COPY_TRADE_MIN_ORDER_USDT})"
+        )
+        return
+
+    price = get_symbol_last_price(session, category, symbol)
+    lot = get_lot_size_filter(session, symbol, category)
+
+    qty_step = lot["qty_step"]
+    min_order_qty = lot["min_order_qty"]
+    max_mkt_order_qty = lot["max_mkt_order_qty"]
+
+    raw_qty = notional_to_open / price
+    qty = round_qty_by_step(raw_qty, qty_step)
+
+    if max_mkt_order_qty > 0:
+        qty = min(qty, max_mkt_order_qty)
+
+    if qty <= 0 or qty < min_order_qty:
+        log(
+            f"{account_name} COPY SKIP: qty invalid "
+            f"qty={qty}, min={min_order_qty}, raw={raw_qty}"
+        )
+        return
+
+    set_symbol_leverage(session, category, symbol, COPY_TRADE_LEVERAGE)
+
+    params = {
+        "category": category,
+        "symbol": symbol,
+        "side": side,
+        "orderType": "Market",
+        "qty": fmt_amount(qty),
+        "reduceOnly": False,
+        "orderLinkId": f"copy-{account_name}-{uuid.uuid4().hex[:16]}",
+    }
+
+    if position_idx is not None:
+        try:
+            params["positionIdx"] = int(position_idx)
+        except Exception:
+            pass
+
+    resp = require_ok(
+        session.place_order(**params),
+        f"{account_name} copy place_order {category} {symbol}"
+    )
+
+    log(
+        f"{account_name} COPY ORDER SENT -> "
+        f"{category} {symbol} {side} qty={qty} "
+        f"wallet={wallet_usdt} margin90={margin_to_use} "
+        f"notional={notional_to_open} leverage={COPY_TRADE_LEVERAGE}x"
+    )
+    log(f"{account_name} COPY RESP: {resp}")
+
+
+def run_copy_trade_cycle(accounts):
+    if not COPY_TRADE_ENABLED:
+        return
+
+    leader_account = None
+
+    for account in accounts:
+        if account["index"] == COPY_TRADE_LEADER_ACCOUNT:
+            leader_account = account
+            break
+
+    if leader_account is None:
+        log(f"COPY TRADE ERROR: leader account #{COPY_TRADE_LEADER_ACCOUNT} not found")
+        return
+
     try:
-        open_positions = get_open_positions()
+        leader_positions = get_open_positions(leader_account["session"])
     except Exception as e:
-        log(f"GET OPEN POSITIONS ERROR: {e}")
+        log(f"COPY TRADE ERROR: cannot read leader positions: {e}")
+        traceback.print_exc()
+        return
+
+    leader_position = pick_leader_position(leader_positions)
+
+    if not leader_position:
+        log("COPY TRADE: leader has no open position")
+
+        for account in accounts:
+            if COPY_TRADE_FOLLOWERS_START <= account["index"] <= COPY_TRADE_FOLLOWERS_END:
+                remove_file_if_exists(account["copy_lock_file"])
+
+        return
+
+    signature = copy_trade_signature(leader_position)
+
+    log(
+        "COPY TRADE LEADER POSITION -> "
+        f"{leader_position['category']} {leader_position['symbol']} "
+        f"{leader_position['side']} size={leader_position['size']} "
+        f"signature={signature}"
+    )
+
+    for account in accounts:
+        idx = account["index"]
+
+        if idx == COPY_TRADE_LEADER_ACCOUNT:
+            continue
+
+        if idx < COPY_TRADE_FOLLOWERS_START or idx > COPY_TRADE_FOLLOWERS_END:
+            continue
+
+        lock_file = account["copy_lock_file"]
+        old_signature = read_text_file(lock_file)
+
+        if old_signature == signature:
+            log(f"{account['name']} COPY SKIP: already copied this leader position")
+            continue
+
+        try:
+            open_copy_position_for_follower(account, leader_position)
+            write_text_file(lock_file, signature)
+
+        except Exception as e:
+            log(f"{account['name']} COPY ERROR: {e}")
+            traceback.print_exc()
+
+
+def run_cycle(account):
+    session = account["session"]
+    lock_file = account["lock_file"]
+    account_name = account["name"]
+
+    log(f"===== START CYCLE: {account_name} =====")
+
+    try:
+        open_positions = get_open_positions(session)
+    except Exception as e:
+        log(f"{account_name} GET OPEN POSITIONS ERROR: {e}")
         traceback.print_exc()
         open_positions = []
 
     try:
-        monitor_and_close_on_loss(open_positions)
+        monitor_and_close_on_loss(session, open_positions)
     except Exception as e:
-        log(f"MONITOR/CLOSE ERROR: {e}")
+        log(f"{account_name} MONITOR/CLOSE ERROR: {e}")
         traceback.print_exc()
 
     try:
-        open_positions = get_open_positions()
+        open_positions = get_open_positions(session)
     except Exception as e:
-        log(f"REFRESH OPEN POSITIONS ERROR: {e}")
+        log(f"{account_name} REFRESH OPEN POSITIONS ERROR: {e}")
         traceback.print_exc()
         open_positions = []
 
     try:
-        transfer_excess_to_fund(open_positions)
+        transfer_excess_to_fund(session, open_positions)
     except Exception as e:
-        log(f"FATAL CYCLE ERROR: {e}")
+        log(f"{account_name} TRANSFER EXCESS ERROR: {e}")
         traceback.print_exc()
 
     try:
-        transfer_fund_to_unified_when_position_once(open_positions)
+        transfer_fund_to_unified_when_position_once(session, open_positions, lock_file)
     except Exception as e:
-        log(f"POSITION TOP-UP ERROR: {e}")
+        log(f"{account_name} POSITION TOP-UP ERROR: {e}")
         traceback.print_exc()
+
+    log(f"===== END CYCLE: {account_name} =====")
 
 
 def main():
+    accounts = load_bybit_accounts()
+
     log("Bybit Reserve Bot started on Render worker")
     log(f"Mode: {MODE}")
     log(f"Testnet: {TESTNET}")
     log(f"Reserve USDT: {RESERVE_USDT}")
     log(f"Sleep seconds: {BOT_SLEEP_SEC}")
+    log(f"Loaded accounts: {len(accounts)}")
+    log(f"Copy trade enabled: {COPY_TRADE_ENABLED}")
+    log(f"Copy trade leader: account_{COPY_TRADE_LEADER_ACCOUNT}")
+    log(f"Copy trade followers: {COPY_TRADE_FOLLOWERS_START} to {COPY_TRADE_FOLLOWERS_END}")
+    log(f"Copy trade leverage: {COPY_TRADE_LEVERAGE}x")
+    log(f"Copy trade wallet pct: {COPY_TRADE_WALLET_PCT}")
 
     while True:
-        run_cycle()
+        try:
+            run_copy_trade_cycle(accounts)
+        except Exception as e:
+            log(f"COPY TRADE LOOP ERROR: {e}")
+            traceback.print_exc()
+
+        for account in accounts:
+            try:
+                run_cycle(account)
+            except Exception as e:
+                log(f"ACCOUNT LOOP ERROR {account['name']}: {e}")
+                traceback.print_exc()
+
         time.sleep(BOT_SLEEP_SEC)
 
 
