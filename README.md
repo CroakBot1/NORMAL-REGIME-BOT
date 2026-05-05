@@ -1,46 +1,56 @@
 # NORMAL-REGIME-BOT
 
-## Bybit Reserve Bot
+## Bybit Reserve + Copy Trade Bot
 
-This bot monitors and manages the USDT balance in Bybit's UTA wallet, ensuring 501 USDT is always reserved. Any surplus above this amount is transferred to the funding wallet.
+This worker runs Bybit automation for up to 50 API accounts.
 
-### Features
-- **Reserve Automation**: Maintains a minimum reserve of 501 USDT in the UTA wallet.
-- **Surplus Handling**: Transfers amounts exceeding the reserve to the funding wallet automatically.
-- **Customizable Parameters**: Adjust reserve amount, thresholds, and API credentials easily.
+## Behavior
 
-### Setup Instructions
+API #01 is the master account.
 
-#### Prerequisites
-1. Install [Termux](https://termux.dev/) on your device.
-2. Install Python (version 3.8+).
-3. Have Bybit API credentials (API key and secret).
+API #01 runs the original logic:
+- reserve USDT in UNIFIED wallet
+- transfer surplus UNIFIED -> FUND
+- top-up FUND -> UNIFIED when a position exists
+- close position when unrealised loss reaches the configured limit
 
-#### Steps
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/CroakBot1/NORMAL-REGIME-BOT.git
-   cd NORMAL-REGIME-BOT
-   ```
+API #02 to API #50 run the same reserve/top-up/loss-close logic with their own API keys and their own lock files.
 
-2. Update the deployment script with your Bybit API credentials:
-   Open `deployment_script.sh` and set the following environment variables:
-   - `BYBIT_API_KEY`
-   - `BYBIT_API_SECRET`
+API #02 to API #50 also copy API #01 trading activity:
+- same symbol
+- same side
+- same BTC quantity
+- same leverage
+- close when API #01 closes
 
-3. Run the deployment script:
-   ```bash
-   bash deployment_script.sh
-   ```
+Default copied symbol is BTCUSDT.
 
-The bot will now start monitoring and managing the balance.
+## Environment Variables
 
-### Deployment
-- This bot can also be deployed on Render.com for persistent background execution.
+Master:
+- BYBIT_API_KEY
+- BYBIT_API_SECRET
 
-### Files
-- **`bot.js`**: Implements the bot logic.
-- **`deployment_script.sh`**: Automates installation and execution.
+Followers:
+- BYBIT_API_KEY_02 / BYBIT_API_SECRET_02
+- ...
+- BYBIT_API_KEY_50 / BYBIT_API_SECRET_50
 
-### License
-This project is for educational purposes.
+Main settings:
+- BYBIT_MODE=live
+- MAX_API_ACCOUNTS=50
+- FOLLOWER_RESERVE_ENABLED=true
+- COPY_TRADE_ENABLED=true
+- COPY_SYMBOLS=BTCUSDT
+- RESERVE_USDT=501
+- MIN_TRANSFER_USDT=1
+- POSITION_TOPUP_USDT=50
+- LOSS_CLOSE_USDT=70
+- BOT_SLEEP_SEC=15
+- POSITION_LOCK_FILE=/tmp/bybit_position_topup.lock
+
+## Render Deployment
+
+Use `render.yaml`, then add all API keys as secret environment variables in Render.
+
+Do not commit `.env` or real API keys.
