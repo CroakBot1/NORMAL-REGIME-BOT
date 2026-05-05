@@ -16,7 +16,7 @@ COIN = "USDT"
 RESERVE_USDT = Decimal(os.getenv("RESERVE_USDT", "501"))
 MIN_TRANSFER_USDT = Decimal(os.getenv("MIN_TRANSFER_USDT", "1"))
 POSITION_TOPUP_USDT = Decimal(os.getenv("POSITION_TOPUP_USDT", "50"))
-LOSS_CLOSE_USDT = Decimal(os.getenv("LOSS_CLOSE_USDT", "0.1"))
+LOSS_CLOSE_USDT = Decimal(os.getenv("LOSS_CLOSE_USDT", "0.01"))
 BOT_SLEEP_SEC = int(os.getenv("BOT_SLEEP_SEC", "15"))
 
 POSITION_LOCK_FILE = os.getenv(
