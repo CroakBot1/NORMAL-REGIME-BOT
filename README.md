@@ -1,127 +1,46 @@
 # NORMAL-REGIME-BOT
 
-## Bybit Reserve Bot - 50 Account Copy Trade Version
+## Bybit Reserve Bot
 
-This bot keeps the old reserve logic and adds optional copy-trade behavior.
+This bot monitors and manages the USDT balance in Bybit's UTA wallet, ensuring 501 USDT is always reserved. Any surplus above this amount is transferred to the funding wallet.
 
-## Old Logic Preserved
+### Features
+- **Reserve Automation**: Maintains a minimum reserve of 501 USDT in the UTA wallet.
+- **Surplus Handling**: Transfers amounts exceeding the reserve to the funding wallet automatically.
+- **Customizable Parameters**: Adjust reserve amount, thresholds, and API credentials easily.
 
-The original flow remains:
+### Setup Instructions
 
-1. Check open positions.
-2. Close positions if unrealised loss reaches `LOSS_CLOSE_USDT`.
-3. If no open position, transfer surplus from UNIFIED wallet to FUND wallet.
-4. If there is an open position, transfer one-time top-up from FUND wallet to UNIFIED wallet.
-5. Use per-account lock files for position top-up cycles.
+#### Prerequisites
+1. Install [Termux](https://termux.dev/) on your device.
+2. Install Python (version 3.8+).
+3. Have Bybit API credentials (API key and secret).
 
-## New Copy Trade Logic
+#### Steps
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/CroakBot1/NORMAL-REGIME-BOT.git
+   cd NORMAL-REGIME-BOT
+   ```
 
-When `COPY_TRADE_ENABLED=true`, account #1 becomes the leader.
+2. Update the deployment script with your Bybit API credentials:
+   Open `deployment_script.sh` and set the following environment variables:
+   - `BYBIT_API_KEY`
+   - `BYBIT_API_SECRET`
 
-If account #1 has an open position, accounts #2 to #50 can open the same position using:
+3. Run the deployment script:
+   ```bash
+   bash deployment_script.sh
+   ```
 
-```env
-COPY_TRADE_LEVERAGE=60
-COPY_TRADE_WALLET_PCT=0.90
-```
+The bot will now start monitoring and managing the balance.
 
-Formula:
+### Deployment
+- This bot can also be deployed on Render.com for persistent background execution.
 
-```text
-margin_to_use = UNIFIED_wallet_balance * COPY_TRADE_WALLET_PCT
-notional_order_value = margin_to_use * COPY_TRADE_LEVERAGE
-qty = notional_order_value / current_market_price
-```
+### Files
+- **`bot.js`**: Implements the bot logic.
+- **`deployment_script.sh`**: Automates installation and execution.
 
-Example:
-
-```text
-Wallet: 100 USDT
-Wallet percent: 90%
-Margin used: 90 USDT
-Leverage: 60x
-Position notional: 5,400 USDT
-```
-
-## Environment Variables
-
-```env
-BYBIT_MODE=live
-
-RESERVE_USDT=501
-MIN_TRANSFER_USDT=1
-POSITION_TOPUP_USDT=50
-LOSS_CLOSE_USDT=70
-BOT_SLEEP_SEC=15
-POSITION_LOCK_FILE=/tmp/bybit_position_topup.lock
-
-COPY_TRADE_ENABLED=true
-COPY_TRADE_LEADER_ACCOUNT=1
-COPY_TRADE_FOLLOWERS_START=2
-COPY_TRADE_FOLLOWERS_END=50
-COPY_TRADE_LEVERAGE=60
-COPY_TRADE_WALLET_PCT=0.90
-COPY_TRADE_MIN_ORDER_USDT=5
-COPY_TRADE_REQUIRE_NO_FOLLOWER_POSITION=true
-COPY_TRADE_LOCK_PREFIX=/tmp/bybit_copy_trade.lock
-```
-
-## API Key Format
-
-Use continuous numbering:
-
-```env
-BYBIT_API_KEY_1=your_first_api_key
-BYBIT_API_SECRET_1=your_first_api_secret
-
-BYBIT_API_KEY_2=your_second_api_key
-BYBIT_API_SECRET_2=your_second_api_secret
-
-BYBIT_API_KEY_50=your_fiftieth_api_key
-BYBIT_API_SECRET_50=your_fiftieth_api_secret
-```
-
-Do not skip numbers.
-
-Good:
-
-```env
-BYBIT_API_KEY_1=...
-BYBIT_API_SECRET_1=...
-BYBIT_API_KEY_2=...
-BYBIT_API_SECRET_2=...
-BYBIT_API_KEY_3=...
-BYBIT_API_SECRET_3=...
-```
-
-Bad:
-
-```env
-BYBIT_API_KEY_1=...
-BYBIT_API_SECRET_1=...
-BYBIT_API_KEY_3=...
-BYBIT_API_SECRET_3=...
-```
-
-If account 2 is missing, account 3 to 50 will not be loaded.
-
-## Local Run
-
-```bash
-pip install -r requirements.txt
-python app.py
-```
-
-## Render Deployment
-
-Use `render.yaml`, then add real API keys and secrets in the Render dashboard.
-
-Do not commit `.env` or real API credentials to GitHub.
-
-## Security Reminder
-
-If an API key or secret was pasted in chat, committed to GitHub, or shared publicly, rotate/delete it immediately in Bybit.
-
-## Risk Reminder
-
-Using 90% of wallet balance with 60x leverage is extremely risky and can liquidate accounts quickly. Test on testnet before live.
+### License
+This project is for educational purposes.
