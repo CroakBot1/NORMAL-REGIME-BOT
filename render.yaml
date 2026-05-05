@@ -8,6 +8,7 @@ services:
     envVars:
       - key: BYBIT_MODE
         value: live
+
       - key: RESERVE_USDT
         value: "501"
       - key: MIN_TRANSFER_USDT
@@ -20,7 +21,223 @@ services:
         value: "15"
       - key: POSITION_LOCK_FILE
         value: /tmp/bybit_position_topup.lock
-      - key: BYBIT_API_KEY
+
+      - key: COPY_TRADE_ENABLED
+        value: "true"
+      - key: COPY_TRADE_LEADER_ACCOUNT
+        value: "1"
+      - key: COPY_TRADE_FOLLOWERS_START
+        value: "2"
+      - key: COPY_TRADE_FOLLOWERS_END
+        value: "50"
+      - key: COPY_TRADE_LEVERAGE
+        value: "3"
+      - key: COPY_TRADE_WALLET_PCT
+        value: "0.90"
+      - key: COPY_TRADE_MIN_ORDER_USDT
+        value: "5"
+      - key: COPY_TRADE_REQUIRE_NO_FOLLOWER_POSITION
+        value: "true"
+      - key: COPY_TRADE_LOCK_PREFIX
+        value: /tmp/bybit_copy_trade.lock
+
+      - key: BYBIT_API_KEY_1
         sync: false
-      - key: BYBIT_API_SECRET
+      - key: BYBIT_API_SECRET_1
+        sync: false
+      - key: BYBIT_API_KEY_2
+        sync: false
+      - key: BYBIT_API_SECRET_2
+        sync: false
+      - key: BYBIT_API_KEY_3
+        sync: false
+      - key: BYBIT_API_SECRET_3
+        sync: false
+      - key: BYBIT_API_KEY_4
+        sync: false
+      - key: BYBIT_API_SECRET_4
+        sync: false
+      - key: BYBIT_API_KEY_5
+        sync: false
+      - key: BYBIT_API_SECRET_5
+        sync: false
+      - key: BYBIT_API_KEY_6
+        sync: false
+      - key: BYBIT_API_SECRET_6
+        sync: false
+      - key: BYBIT_API_KEY_7
+        sync: false
+      - key: BYBIT_API_SECRET_7
+        sync: false
+      - key: BYBIT_API_KEY_8
+        sync: false
+      - key: BYBIT_API_SECRET_8
+        sync: false
+      - key: BYBIT_API_KEY_9
+        sync: false
+      - key: BYBIT_API_SECRET_9
+        sync: false
+      - key: BYBIT_API_KEY_10
+        sync: false
+      - key: BYBIT_API_SECRET_10
+        sync: false
+      - key: BYBIT_API_KEY_11
+        sync: false
+      - key: BYBIT_API_SECRET_11
+        sync: false
+      - key: BYBIT_API_KEY_12
+        sync: false
+      - key: BYBIT_API_SECRET_12
+        sync: false
+      - key: BYBIT_API_KEY_13
+        sync: false
+      - key: BYBIT_API_SECRET_13
+        sync: false
+      - key: BYBIT_API_KEY_14
+        sync: false
+      - key: BYBIT_API_SECRET_14
+        sync: false
+      - key: BYBIT_API_KEY_15
+        sync: false
+      - key: BYBIT_API_SECRET_15
+        sync: false
+      - key: BYBIT_API_KEY_16
+        sync: false
+      - key: BYBIT_API_SECRET_16
+        sync: false
+      - key: BYBIT_API_KEY_17
+        sync: false
+      - key: BYBIT_API_SECRET_17
+        sync: false
+      - key: BYBIT_API_KEY_18
+        sync: false
+      - key: BYBIT_API_SECRET_18
+        sync: false
+      - key: BYBIT_API_KEY_19
+        sync: false
+      - key: BYBIT_API_SECRET_19
+        sync: false
+      - key: BYBIT_API_KEY_20
+        sync: false
+      - key: BYBIT_API_SECRET_20
+        sync: false
+      - key: BYBIT_API_KEY_21
+        sync: false
+      - key: BYBIT_API_SECRET_21
+        sync: false
+      - key: BYBIT_API_KEY_22
+        sync: false
+      - key: BYBIT_API_SECRET_22
+        sync: false
+      - key: BYBIT_API_KEY_23
+        sync: false
+      - key: BYBIT_API_SECRET_23
+        sync: false
+      - key: BYBIT_API_KEY_24
+        sync: false
+      - key: BYBIT_API_SECRET_24
+        sync: false
+      - key: BYBIT_API_KEY_25
+        sync: false
+      - key: BYBIT_API_SECRET_25
+        sync: false
+      - key: BYBIT_API_KEY_26
+        sync: false
+      - key: BYBIT_API_SECRET_26
+        sync: false
+      - key: BYBIT_API_KEY_27
+        sync: false
+      - key: BYBIT_API_SECRET_27
+        sync: false
+      - key: BYBIT_API_KEY_28
+        sync: false
+      - key: BYBIT_API_SECRET_28
+        sync: false
+      - key: BYBIT_API_KEY_29
+        sync: false
+      - key: BYBIT_API_SECRET_29
+        sync: false
+      - key: BYBIT_API_KEY_30
+        sync: false
+      - key: BYBIT_API_SECRET_30
+        sync: false
+      - key: BYBIT_API_KEY_31
+        sync: false
+      - key: BYBIT_API_SECRET_31
+        sync: false
+      - key: BYBIT_API_KEY_32
+        sync: false
+      - key: BYBIT_API_SECRET_32
+        sync: false
+      - key: BYBIT_API_KEY_33
+        sync: false
+      - key: BYBIT_API_SECRET_33
+        sync: false
+      - key: BYBIT_API_KEY_34
+        sync: false
+      - key: BYBIT_API_SECRET_34
+        sync: false
+      - key: BYBIT_API_KEY_35
+        sync: false
+      - key: BYBIT_API_SECRET_35
+        sync: false
+      - key: BYBIT_API_KEY_36
+        sync: false
+      - key: BYBIT_API_SECRET_36
+        sync: false
+      - key: BYBIT_API_KEY_37
+        sync: false
+      - key: BYBIT_API_SECRET_37
+        sync: false
+      - key: BYBIT_API_KEY_38
+        sync: false
+      - key: BYBIT_API_SECRET_38
+        sync: false
+      - key: BYBIT_API_KEY_39
+        sync: false
+      - key: BYBIT_API_SECRET_39
+        sync: false
+      - key: BYBIT_API_KEY_40
+        sync: false
+      - key: BYBIT_API_SECRET_40
+        sync: false
+      - key: BYBIT_API_KEY_41
+        sync: false
+      - key: BYBIT_API_SECRET_41
+        sync: false
+      - key: BYBIT_API_KEY_42
+        sync: false
+      - key: BYBIT_API_SECRET_42
+        sync: false
+      - key: BYBIT_API_KEY_43
+        sync: false
+      - key: BYBIT_API_SECRET_43
+        sync: false
+      - key: BYBIT_API_KEY_44
+        sync: false
+      - key: BYBIT_API_SECRET_44
+        sync: false
+      - key: BYBIT_API_KEY_45
+        sync: false
+      - key: BYBIT_API_SECRET_45
+        sync: false
+      - key: BYBIT_API_KEY_46
+        sync: false
+      - key: BYBIT_API_SECRET_46
+        sync: false
+      - key: BYBIT_API_KEY_47
+        sync: false
+      - key: BYBIT_API_SECRET_47
+        sync: false
+      - key: BYBIT_API_KEY_48
+        sync: false
+      - key: BYBIT_API_SECRET_48
+        sync: false
+      - key: BYBIT_API_KEY_49
+        sync: false
+      - key: BYBIT_API_SECRET_49
+        sync: false
+      - key: BYBIT_API_KEY_50
+        sync: false
+      - key: BYBIT_API_SECRET_50
         sync: false
