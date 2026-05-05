@@ -21,7 +21,7 @@ When `COPY_TRADE_ENABLED=true`, account #1 becomes the leader.
 If account #1 has an open position, accounts #2 to #50 can open the same position using:
 
 ```env
-COPY_TRADE_LEVERAGE=3
+COPY_TRADE_LEVERAGE=60
 COPY_TRADE_WALLET_PCT=0.90
 ```
 
