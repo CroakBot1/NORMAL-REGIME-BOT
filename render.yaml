@@ -16,7 +16,7 @@ services:
       - key: POSITION_TOPUP_USDT
         value: "50"
       - key: LOSS_CLOSE_USDT
-        value: "0.1"
+        value: "0.01"
       - key: BOT_SLEEP_SEC
         value: "15"
       - key: POSITION_LOCK_FILE
