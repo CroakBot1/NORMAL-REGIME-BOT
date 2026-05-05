@@ -1,16 +1,8 @@
 .env
-.env.local
-.env.*
-!.env.example
-
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .Python
-
 venv/
-.venv/
-env/
-
-.DS_Store
+.env.local
