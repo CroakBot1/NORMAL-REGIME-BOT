@@ -49,7 +49,7 @@ services:
       - key: TELEGRAM_ENABLED
         value: "true"
       - key: TELEGRAM_ADMIN_LINK
-        value: https://t.me/Assistant_quantum
+        value: https://t.me/Skynet_Assistant
       - key: TELEGRAM_ADMIN_CHAT_ID
         value: "7658273737"
       - key: TELEGRAM_POLL_TIMEOUT_SEC
