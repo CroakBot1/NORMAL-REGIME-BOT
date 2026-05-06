@@ -177,6 +177,157 @@ def format_decimal(value) -> str:
 
 
 # ============================================================
+# OPTION TEXT SUPPORT
+#
+# Fix:
+# Users sometimes type menu option names without slash, for example:
+#   paymentMethod
+#   registerApi
+#   walletUtaBalance
+#   1monthlyIncome
+#   1Monthexpiration
+#
+# Before, non-slash text only entered state handler and the bot replied
+# "Type /menu" or did not act like the selected option.
+# This keeps old app.py untouched and only improves Telegram wrapper routing.
+# ============================================================
+
+OPTION_ALIASES = {
+    "start": "/start",
+    "menu": "/menu",
+    "help": "/help",
+
+    "payment": "/paymentmethod",
+    "paymentmethod": "/paymentmethod",
+
+    "redeem": "/redeemaccesscode",
+    "login": "/redeemaccesscode",
+    "accesscode": "/redeemaccesscode",
+    "redeemaccesscode": "/redeemaccesscode",
+
+    "register": "/registerapi",
+    "registerapi": "/registerapi",
+
+    "connect": "/connectapi",
+    "connectapi": "/connectapi",
+
+    "wallet": "/walletutabalance",
+    "balance": "/walletutabalance",
+    "walletutabalance": "/walletutabalance",
+
+    "status": "/apistatus",
+    "apistatus": "/apistatus",
+
+    "position": "/positions",
+    "positions": "/positions",
+
+    "income": "/1monthlyincome",
+    "monthlyincome": "/1monthlyincome",
+    "1monthlyincome": "/1monthlyincome",
+
+    "expiration": "/1monthexpiration",
+    "expire": "/1monthexpiration",
+    "1monthexpiration": "/1monthexpiration",
+
+    "monitornow": "/monitornow",
+    "checknow": "/monitornow",
+
+    "account": "/myaccount",
+    "myaccount": "/myaccount",
+
+    "deleteapi": "/deleteapi",
+    "removeapi": "/deleteapi",
+
+    "cancel": "/cancel",
+    "adminusers": "/adminusers",
+}
+
+OPTION_PHRASE_ALIASES = {
+    "payment method": "/paymentmethod",
+    "redeem access code": "/redeemaccesscode",
+    "access code": "/redeemaccesscode",
+    "register api": "/registerapi",
+    "connect api": "/connectapi",
+    "wallet uta balance": "/walletutabalance",
+    "uta balance": "/walletutabalance",
+    "api status": "/apistatus",
+    "monthly income": "/1monthlyincome",
+    "1 monthly income": "/1monthlyincome",
+    "1 month expiration": "/1monthexpiration",
+    "one month expiration": "/1monthexpiration",
+    "monitor now": "/monitornow",
+    "check now": "/monitornow",
+    "my account": "/myaccount",
+    "delete api": "/deleteapi",
+    "remove api": "/deleteapi",
+    "admin users": "/adminusers",
+}
+
+
+def compact_option_key(value: str) -> str:
+    value = safe_text(value).lower().strip()
+    return "".join(ch for ch in value if ch.isalnum())
+
+
+def normalize_option_command(text: str) -> str:
+    """
+    Convert typed option names to slash commands.
+
+    Examples:
+      paymentMethod              -> /paymentmethod
+      paymentMethod 123          -> /paymentmethod 123
+      redeemAccessCode 392051    -> /redeemaccesscode 392051
+      redeem access code 392051  -> /redeemaccesscode 392051
+      registerApi                -> /registerapi
+    """
+    raw = safe_text(text).strip()
+
+    if not raw:
+        return ""
+
+    raw = raw.replace("\u200b", "").strip()
+    raw = " ".join(raw.split())
+
+    if not raw:
+        return ""
+
+    # Already a Telegram command.
+    if raw.startswith("/"):
+        return raw
+
+    lower_raw = raw.lower()
+
+    # Match multi-word option labels first.
+    for phrase, command in sorted(
+        OPTION_PHRASE_ALIASES.items(),
+        key=lambda item: len(item[0]),
+        reverse=True,
+    ):
+        if lower_raw == phrase or lower_raw.startswith(phrase + " "):
+            rest = raw[len(phrase):].strip()
+            return command + (f" {rest}" if rest else "")
+
+    # Match first token so commands with arguments still work.
+    parts = raw.split(maxsplit=1)
+    head = parts[0].split("@")[0]
+    rest = parts[1] if len(parts) > 1 else ""
+
+    key = compact_option_key(head)
+
+    if key in OPTION_ALIASES:
+        command = OPTION_ALIASES[key]
+        return command + (f" {rest}" if rest else "")
+
+    # Exact full-text match for labels like "walletUtaBalance".
+    full_key = compact_option_key(raw)
+
+    if full_key in OPTION_ALIASES:
+        return OPTION_ALIASES[full_key]
+
+    return ""
+
+
+# ============================================================
 # ENCRYPTION
 # ============================================================
 
@@ -724,7 +875,9 @@ def tg_set_commands():
         {"command": "walletutabalance", "description": "Show UTA wallet balance"},
         {"command": "apistatus", "description": "Last API monitor status"},
         {"command": "positions", "description": "Show open positions"},
+        {"command": "1monthlyincome", "description": "This month closed PnL"},
         {"command": "monthlyincome", "description": "This month closed PnL"},
+        {"command": "1monthexpiration", "description": "Show subscription expiration"},
         {"command": "expiration", "description": "Show subscription expiration"},
         {"command": "monitornow", "description": "Run monitor check now"},
         {"command": "myaccount", "description": "Show account details"},
@@ -1073,6 +1226,8 @@ def menu_text(chat_id=None):
         "/myAccount - account info\n"
         "/deleteApi - remove saved API\n"
         "/help - show help\n\n"
+        "Pwede pud nimo i-type ang option without slash, example:\n"
+        "paymentMethod, registerApi, walletUtaBalance, monitorNow\n\n"
         "Security tip: for monitoring only, use read-only Bybit API keys."
     )
 
@@ -1109,7 +1264,9 @@ def handle_redeem(chat_id, args, telegram_username=""):
         tg_send(
             chat_id,
             "Enter access code like this:\n"
-            "/redeemAccessCode 392051",
+            "/redeemAccessCode 392051\n\n"
+            "Pwede pud:\n"
+            "redeemAccessCode 392051",
             reply_markup=main_keyboard(),
         )
         return
@@ -1186,7 +1343,7 @@ def handle_register_api(chat_id, args=None):
         "Step 1/3: Send your Skynet username.\n\n"
         "Example:\n"
         "john_trader\n\n"
-        "Cancel: /cancel",
+        "Cancel: /cancel or type cancel",
     )
 
 
@@ -1278,7 +1435,7 @@ def handle_state_message(chat_id, text, message_id=None):
             chat_id,
             "Step 2/3: Send your Bybit API KEY.\n\n"
             "Security tip: create a read-only key if this is only for monitoring.\n"
-            "Cancel: /cancel",
+            "Cancel: /cancel or type cancel",
         )
         return
 
@@ -1297,7 +1454,7 @@ def handle_state_message(chat_id, text, message_id=None):
             chat_id,
             "Step 3/3: Send your Bybit API SECRET.\n\n"
             "I will try to delete your sensitive message after receiving it.\n"
-            "Cancel: /cancel",
+            "Cancel: /cancel or type cancel",
         )
         return
 
@@ -1528,6 +1685,7 @@ def handle_admin_users(chat_id):
 
 
 def handle_command(chat_id, text, telegram_username=""):
+    text = normalize_option_command(text) or safe_text(text)
     parts = safe_text(text).strip().split()
 
     if not parts:
@@ -1645,10 +1803,31 @@ def handle_update(update: dict):
         tg_send(chat_id, "Type /menu to see commands.", reply_markup=main_keyboard())
         return
 
-    if text.startswith("/"):
-        handle_command(chat_id, text, telegram_username=telegram_username)
-    else:
+    normalized_command = normalize_option_command(text)
+
+    if text.startswith("/") or normalized_command:
+        handle_command(
+            chat_id,
+            normalized_command or text,
+            telegram_username=telegram_username,
+        )
+        return
+
+    state, _payload = get_user_state(chat_id)
+
+    if state:
         handle_state_message(chat_id, text, message_id=message_id)
+        return
+
+    tg_send(
+        chat_id,
+        "Type /menu to see commands.\n\n"
+        "Pwede pud nimo i-type ang option, example:\n"
+        "paymentMethod\n"
+        "registerApi\n"
+        "walletUtaBalance",
+        reply_markup=main_keyboard(),
+    )
 
 
 def telegram_poll_commands():
@@ -1686,14 +1865,14 @@ def telegram_poll_commands():
         for update in updates:
             update_id = update.get("update_id")
 
-            if update_id is not None:
-                db_set_meta("telegram_last_update_id", str(update_id))
-
             try:
                 handle_update(update)
             except Exception as e:
                 core.log(f"TELEGRAM handle_update error: {e}")
                 traceback.print_exc()
+
+            if update_id is not None:
+                db_set_meta("telegram_last_update_id", str(update_id))
 
     except Exception as e:
         core.log(f"TELEGRAM poll error: {e}")
