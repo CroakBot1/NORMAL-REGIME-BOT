@@ -4,7 +4,7 @@ services:
     runtime: python
     plan: starter
     buildCommand: pip install -r requirements.txt
-    startCommand: python telegram_app.py
+    startCommand: python app.py
     envVars:
       - key: BYBIT_MODE
         value: live
@@ -45,36 +45,6 @@ services:
         value: "15"
       - key: POSITION_LOCK_FILE
         value: /tmp/bybit_position_topup.lock
-
-      - key: TELEGRAM_ENABLED
-        value: "true"
-      - key: TELEGRAM_ADMIN_LINK
-        value: https://t.me/Skynet_Assistant
-      - key: TELEGRAM_ADMIN_CHAT_ID
-        value: "7658273737"
-      - key: TELEGRAM_POLL_TIMEOUT_SEC
-        value: "2"
-      - key: TELEGRAM_PROCESS_LIMIT
-        value: "20"
-      - key: TELEGRAM_MONITOR_INTERVAL_SEC
-        value: "300"
-      - key: TELEGRAM_MONITOR_SEND_OK_EVERY_CHECK
-        value: "false"
-      - key: TELEGRAM_DELETE_SENSITIVE_MESSAGES
-        value: "true"
-      - key: ACCESS_DAYS
-        value: "30"
-      - key: BOT_DB_PATH
-        value: /tmp/skynet7rader_monitor.db
-      - key: BYBIT_MONITOR_CATEGORY
-        value: linear
-      - key: ACCESS_CODES
-        value: "392051,847162,502938,115684,773029,482195,605317,229481,938572,150643,827319,404856,591274,336109,728495,201948,864032,551726,913840,476203,109587,683214,357902,824165,590371,216498,743056,189274,635108,402837,957123,126489,730591,584210,319647,842056,671932,250384,918273,463519,137402,895621,524038,701945,362810,948572,215036,679413,483120,506794"
-
-      - key: TELEGRAM_BOT_TOKEN
-        sync: false
-      - key: DATA_ENCRYPTION_KEY
-        sync: false
 
       - key: BYBIT_API_KEY
         sync: false
