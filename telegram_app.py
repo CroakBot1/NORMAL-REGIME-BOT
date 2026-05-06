@@ -25,7 +25,7 @@ import app as core
 TELEGRAM_ENABLED = core.env_bool("TELEGRAM_ENABLED", "true")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
 TELEGRAM_ADMIN_CHAT_ID = os.getenv("TELEGRAM_ADMIN_CHAT_ID", "").strip()
-TELEGRAM_ADMIN_LINK = os.getenv("TELEGRAM_ADMIN_LINK", "https://t.me/Assistant_quantum").strip()
+TELEGRAM_ADMIN_LINK = os.getenv("TELEGRAM_ADMIN_LINK", "https://t.me/Skynet_Assistant").strip()
 
 TELEGRAM_POLL_TIMEOUT_SEC = core.env_int("TELEGRAM_POLL_TIMEOUT_SEC", "2")
 TELEGRAM_PROCESS_LIMIT = core.env_int("TELEGRAM_PROCESS_LIMIT", "20")
