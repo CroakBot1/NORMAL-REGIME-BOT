@@ -4,7 +4,7 @@ services:
     runtime: python
     plan: starter
     buildCommand: pip install -r requirements.txt
-    startCommand: python telegram_test.py
+    startCommand: python telegram_app.py
     envVars:
       - key: BYBIT_MODE
         value: live
