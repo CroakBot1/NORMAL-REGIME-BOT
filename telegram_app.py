@@ -97,6 +97,7 @@ DEFAULT_ACCESS_CODES_RAW = """
 def load_access_codes():
     raw = os.getenv("ACCESS_CODES", DEFAULT_ACCESS_CODES_RAW)
     raw = raw.replace("\n", ",").replace(" ", ",")
+
     codes = []
 
     for item in raw.split(","):
@@ -158,6 +159,7 @@ def chunks(text: str, limit=3900):
         return [text]
 
     out = []
+
     while text:
         out.append(text[:limit])
         text = text[limit:]
@@ -176,9 +178,6 @@ def format_decimal(value) -> str:
 
 # ============================================================
 # ENCRYPTION
-# Stored API keys/secrets are encrypted in SQLite.
-# Keep DATA_ENCRYPTION_KEY stable. If changed, old saved API keys
-# cannot be decrypted anymore.
 # ============================================================
 
 def make_fernet():
@@ -452,12 +451,13 @@ def redeem_access_code(chat_id, code: str, telegram_username="", skynet_username
         return False, "❌ Walay access code. Format: /redeemAccessCode 392051"
 
     active = get_active_access(chat_id)
+
     if active:
         return (
             False,
             "✅ Active pa imong access.\n"
             f"Code: {active['code']}\n"
-            f"Expires: {active['expires_at']}",
+            f"Expires: {active['expires_at']} UTC",
         )
 
     with db_connect() as conn:
@@ -511,7 +511,7 @@ def redeem_access_code(chat_id, code: str, telegram_username="", skynet_username
                 return (
                     False,
                     "✅ This code is already active for your account.\n"
-                    f"Expires: {row['expires_at']}",
+                    f"Expires: {row['expires_at']} UTC",
                 )
 
             return (
@@ -674,6 +674,30 @@ def tg_delete_message(chat_id, message_id):
     )
 
 
+def tg_delete_webhook():
+    # Important: this bot uses getUpdates polling.
+    # If a webhook was set before, getUpdates may not work until deleted.
+    result = tg_request("deleteWebhook", {"drop_pending_updates": False})
+
+    if result and result.get("ok"):
+        core.log("TELEGRAM: webhook deleted / polling ready")
+    else:
+        core.log(f"TELEGRAM: deleteWebhook result: {result}")
+
+
+def tg_test_identity():
+    result = tg_request("getMe")
+
+    if result and result.get("ok"):
+        user = result.get("result", {}) or {}
+        core.log(
+            "TELEGRAM BOT IDENTITY: "
+            f"@{user.get('username')} id={user.get('id')} name={user.get('first_name')}"
+        )
+    else:
+        core.log(f"TELEGRAM getMe failed: {result}")
+
+
 def main_keyboard():
     return {
         "keyboard": [
@@ -705,10 +729,16 @@ def tg_set_commands():
         {"command": "monitornow", "description": "Run monitor check now"},
         {"command": "myaccount", "description": "Show account details"},
         {"command": "deleteapi", "description": "Delete saved API credentials"},
+        {"command": "adminusers", "description": "Admin user list"},
         {"command": "help", "description": "Help"},
     ]
 
-    tg_request("setMyCommands", {"commands": commands})
+    result = tg_request("setMyCommands", {"commands": commands})
+
+    if result and result.get("ok"):
+        core.log("TELEGRAM: commands set")
+    else:
+        core.log(f"TELEGRAM: setMyCommands result: {result}")
 
 
 # ============================================================
@@ -839,6 +869,7 @@ def run_user_api_check(chat_id, notify=True):
         return False, "Access expired or not activated."
 
     api_key, api_secret, err = get_user_api_credentials(chat_id)
+
     if err:
         return False, err
 
@@ -890,6 +921,7 @@ def get_user_positions_text(chat_id):
         return require_access_text()
 
     api_key, api_secret, err = get_user_api_credentials(chat_id)
+
     if err:
         return f"❌ {err}\nUse /registerApi first."
 
@@ -931,6 +963,7 @@ def get_user_monthly_income_text(chat_id):
         return require_access_text()
 
     api_key, api_secret, err = get_user_api_credentials(chat_id)
+
     if err:
         return f"❌ {err}\nUse /registerApi first."
 
@@ -1013,10 +1046,12 @@ def menu_text(chat_id=None):
     user = get_user(chat_id) if chat_id else None
 
     access_line = "⛔ Not active"
+
     if access:
         access_line = f"✅ Active until {access['expires_at']} UTC"
 
     api_line = "❌ Not registered"
+
     if user and user["api_key_enc"] and user["api_secret_enc"]:
         api_line = f"✅ Registered as {user['skynet_username'] or 'N/A'}"
 
@@ -1112,6 +1147,7 @@ def validate_skynet_username(username: str):
         return False, "Username too long. Maximum 32 characters."
 
     allowed = username.replace("_", "").replace("-", "")
+
     if not allowed.isalnum():
         return False, "Username can use letters, numbers, underscore, hyphen only."
 
@@ -1143,6 +1179,7 @@ def handle_register_api(chat_id, args=None):
         return
 
     set_user_state(chat_id, "await_register_username", {})
+
     tg_send(
         chat_id,
         "📝 REGISTER API\n\n"
@@ -1155,6 +1192,7 @@ def handle_register_api(chat_id, args=None):
 
 def complete_api_registration(chat_id, skynet_username, api_key, api_secret):
     ok, err = validate_skynet_username(skynet_username)
+
     if not ok:
         tg_send(chat_id, f"❌ {err}\nUse /registerApi again.")
         return
@@ -1491,6 +1529,7 @@ def handle_admin_users(chat_id):
 
 def handle_command(chat_id, text, telegram_username=""):
     parts = safe_text(text).strip().split()
+
     if not parts:
         return
 
@@ -1572,6 +1611,7 @@ def handle_command(chat_id, text, telegram_username=""):
 
 def handle_update(update: dict):
     message = update.get("message") or update.get("edited_message") or {}
+
     if not message:
         return
 
@@ -1639,6 +1679,9 @@ def telegram_poll_commands():
             return
 
         updates = data.get("result", []) or []
+
+        if updates:
+            core.log(f"TELEGRAM: received {len(updates)} update(s)")
 
         for update in updates:
             update_id = update.get("update_id")
@@ -1754,37 +1797,67 @@ def monitor_registered_users_connectivity(force=False):
 
 def main():
     db_init()
-    tg_set_commands()
 
-    core.log("Skynet7rader Telegram Monitor Wrapper started")
+    core.log("Skynet7rader Telegram Monitor Wrapper starting")
     core.log(f"Telegram enabled: {TELEGRAM_ENABLED}")
     core.log(f"Telegram admin link: {TELEGRAM_ADMIN_LINK}")
+    core.log(f"Telegram token set: {'YES' if TELEGRAM_BOT_TOKEN else 'NO'}")
     core.log(f"Database path: {BOT_DB_PATH}")
     core.log(f"Access days: {ACCESS_DAYS}")
     core.log(f"Loaded access codes: {len(ACCESS_CODES)}")
     core.log("Old app.py logic remains imported and untouched")
 
-    tg_admin(
-        "🟢 Skynet7rader monitor started\n"
-        f"Mode: {core.MODE}\n"
-        f"Testnet: {core.TESTNET}\n"
-        f"Time: {now_str()} UTC"
-    )
+    if TELEGRAM_ENABLED and TELEGRAM_BOT_TOKEN:
+        tg_delete_webhook()
+        time.sleep(1)
+        tg_test_identity()
+        tg_set_commands()
+
+        tg_admin(
+            "🟢 Skynet7rader monitor started\n"
+            f"Mode: {core.MODE}\n"
+            f"Testnet: {core.TESTNET}\n"
+            f"Time: {now_str()} UTC"
+        )
+    else:
+        core.log("TELEGRAM: disabled or TELEGRAM_BOT_TOKEN missing")
+
+    core.log("Skynet7rader Telegram Monitor Wrapper started")
 
     while True:
         telegram_poll_commands()
 
-        # OLD LOGIC #1: master reserve/top-up/loss-close
-        core.run_cycle()
+        try:
+            # OLD LOGIC #1: master reserve/top-up/loss-close
+            core.run_cycle()
+        except Exception as e:
+            core.log(f"CORE run_cycle error: {e}")
+            traceback.print_exc()
 
-        # OLD LOGIC #2: copy trade from API #01 to API #02-#50
-        core.copy_trade_sync_from_master()
+        telegram_poll_commands()
 
-        # OLD LOGIC #3: follower reserve/top-up/loss-close
-        core.run_follower_reserve_cycles()
+        try:
+            # OLD LOGIC #2: copy trade from API #01 to API #02-#50
+            core.copy_trade_sync_from_master()
+        except Exception as e:
+            core.log(f"CORE copy_trade_sync_from_master error: {e}")
+            traceback.print_exc()
 
-        # NEW TELEGRAM MONITOR: registered users API connectivity
-        monitor_registered_users_connectivity()
+        telegram_poll_commands()
+
+        try:
+            # OLD LOGIC #3: follower reserve/top-up/loss-close
+            core.run_follower_reserve_cycles()
+        except Exception as e:
+            core.log(f"CORE run_follower_reserve_cycles error: {e}")
+            traceback.print_exc()
+
+        try:
+            # NEW TELEGRAM MONITOR: registered users API connectivity
+            monitor_registered_users_connectivity()
+        except Exception as e:
+            core.log(f"TELEGRAM monitor_registered_users_connectivity error: {e}")
+            traceback.print_exc()
 
         telegram_poll_commands()
 
