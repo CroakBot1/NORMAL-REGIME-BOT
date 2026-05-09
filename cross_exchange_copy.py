@@ -19,36 +19,9 @@ PLACEHOLDER_PREFIXES = (
     "CHANGE_ME",
     "REPLACE_ME",
     "PUT_",
-    "BINANCE_API_KEY",
-    "BINANCE_API_SECRET",
-    "MEXC_API_KEY",
-    "MEXC_API_SECRET",
-    "GATE_API_KEY",
-    "GATE_API_SECRET",
+    "REAL_",
+    "EXAMPLE_",
 )
-
-
-SUPPORTED_EXCHANGES = {
-    "binance",
-    "mexc",
-    "gateio",
-    "bingx",
-    "bitmart",
-    "phemex",
-    "kraken",
-    "coinbase",
-    "bitstamp",
-    "htx",
-    "bitfinex",
-    "cryptocom",
-    "deribit",
-    "woo",
-    "ascendex",
-    "bitmex",
-    "coinex",
-    "lbank",
-    "poloniex",
-}
 
 
 @dataclass
@@ -83,6 +56,8 @@ class CrossCopyConfig:
     reserve_usdt: Decimal
     min_free_usdt_after_reserve: Decimal
     loss_close_usdt: Decimal
+    max_exchanges: int
+    max_accounts_per_exchange: int
     accounts: List[CrossAccountConfig]
 
 
@@ -120,6 +95,13 @@ def bool_value(value: Any, default: bool = False) -> bool:
     return str(value).strip().lower() in ("1", "true", "yes", "y", "on")
 
 
+def int_value(value: Any, default: int) -> int:
+    try:
+        return int(str(value).strip())
+    except Exception:
+        return default
+
+
 def normalize_exchange_name(name: str) -> str:
     name = str(name or "").strip().lower()
 
@@ -128,9 +110,21 @@ def normalize_exchange_name(name: str) -> str:
         "crypto.com": "cryptocom",
         "crypto_com": "cryptocom",
         "gate": "gateio",
+        "binanceusdm": "binance",
+        "binancecoinm": "binance",
     }
 
     return aliases.get(name, name)
+
+
+def exchange_is_supported(exchange_name: str) -> bool:
+    if ccxt is None:
+        return False
+
+    try:
+        return exchange_name in getattr(ccxt, "exchanges", [])
+    except Exception:
+        return hasattr(ccxt, exchange_name)
 
 
 def normalize_bybit_symbol(symbol: str) -> str:
@@ -171,6 +165,18 @@ def load_config_from_json_and_app(
     dry_run = bool_value(data.get("dry_run"), False)
     check_balance = bool_value(data.get("check_balance"), False)
     default_type = clean_value(data.get("default_type")) or "swap"
+
+    max_exchanges = int_value(data.get("max_exchanges"), 50)
+    max_accounts_per_exchange = int_value(data.get("max_accounts_per_exchange"), 50)
+
+    if max_exchanges <= 0:
+        max_exchanges = 50
+
+    if max_accounts_per_exchange <= 0:
+        max_accounts_per_exchange = 50
+
+    max_exchanges = min(max_exchanges, 50)
+    max_accounts_per_exchange = min(max_accounts_per_exchange, 50)
 
     app_reserve = getattr(app_module, "RESERVE_USDT", Decimal("501"))
     app_min_transfer = getattr(app_module, "MIN_TRANSFER_USDT", Decimal("1"))
@@ -216,14 +222,24 @@ def load_config_from_json_and_app(
     if not isinstance(raw_followers, list):
         raw_followers = []
 
+    exchange_count = 0
+
     for follower in raw_followers:
+        if exchange_count >= max_exchanges:
+            break
+
         if not isinstance(follower, dict):
             continue
 
         exchange_name = normalize_exchange_name(follower.get("name"))
 
-        if not exchange_name or exchange_name not in SUPPORTED_EXCHANGES:
+        if not exchange_name:
             continue
+
+        if not exchange_is_supported(exchange_name):
+            continue
+
+        exchange_count += 1
 
         follower_default_type = clean_value(follower.get("default_type")) or default_type
         follower_sandbox = bool_value(follower.get("sandbox"), False)
@@ -233,14 +249,17 @@ def load_config_from_json_and_app(
             follower_multiplier = size_multiplier
 
         follower_set_leverage = bool_value(follower.get("set_leverage"), set_leverage)
+
         follower_close_extra = bool_value(
             follower.get("close_extra_positions"),
             close_extra_positions,
         )
+
         follower_reserve_enabled = bool_value(
             follower.get("reserve_enabled"),
             reserve_enabled,
         )
+
         follower_loss_close_enabled = bool_value(
             follower.get("loss_close_enabled"),
             loss_close_enabled,
@@ -249,7 +268,7 @@ def load_config_from_json_and_app(
         raw_accounts = follower.get("accounts")
 
         if isinstance(raw_accounts, list):
-            account_items = raw_accounts[:50]
+            account_items = raw_accounts[:max_accounts_per_exchange]
         else:
             account_items = [follower]
 
@@ -316,6 +335,8 @@ def load_config_from_json_and_app(
         reserve_usdt=reserve_usdt,
         min_free_usdt_after_reserve=min_free_usdt_after_reserve,
         loss_close_usdt=loss_close_usdt,
+        max_exchanges=max_exchanges,
+        max_accounts_per_exchange=max_accounts_per_exchange,
         accounts=accounts,
     )
 
