@@ -366,7 +366,7 @@ def get_transferable_amount_unified() -> Decimal:
 
     try:
         r = require_ok(
-            session.get_coins_balance(accountType="UNIFIED"),
+            session.get_coins_balance(accountType="UNIFIED", coin=COIN),
             "get_coins_balance UNIFIED"
         )
         amt = extract_coin_balance_from_any_result(r, COIN)
@@ -851,7 +851,7 @@ def get_transferable_amount_unified_for(http_session: HTTP, label: str) -> Decim
 
     try:
         r = require_ok(
-            http_session.get_coins_balance(accountType="UNIFIED"),
+            http_session.get_coins_balance(accountType="UNIFIED", coin=COIN),
             f"{label} get_coins_balance UNIFIED"
         )
         amt = extract_coin_balance_from_any_result(r, COIN)
