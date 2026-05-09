@@ -1,18 +1,18 @@
 import traceback
 
-from multi_exchange import start_multi_exchange_background_worker
-
 import app
+from cross_exchange_copy import start_cross_exchange_copy_worker
 
 
 def main():
     try:
-        start_multi_exchange_background_worker(
+        start_cross_exchange_copy_worker(
+            app_module=app,
             log_func=app.log,
             config_path="live_exchanges.json",
         )
     except Exception as e:
-        app.log(f"MULTI-EXCHANGE: failed to start: {e}")
+        app.log(f"CROSS-COPY: failed to start: {e}")
         traceback.print_exc()
 
     app.main()
