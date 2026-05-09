@@ -32,6 +32,7 @@ class CrossAccountConfig:
     api_secret: str
     sandbox: bool = False
     default_type: str = "swap"
+    position_mode: str = "auto"
     size_multiplier: Decimal = Decimal("1")
     set_leverage: bool = True
     close_extra_positions: bool = True
@@ -49,6 +50,7 @@ class CrossCopyConfig:
     dry_run: bool
     check_balance: bool
     default_type: str
+    position_mode: str
     symbols: List[str]
     size_multiplier: Decimal
     set_leverage: bool
@@ -117,6 +119,18 @@ def normalize_exchange_name(name: str) -> str:
     return aliases.get(name, name)
 
 
+def normalize_position_mode(value: Any) -> str:
+    mode = str(value or "").strip().lower()
+
+    if mode in ("hedge", "hedged", "dual", "both"):
+        return "hedge"
+
+    if mode in ("oneway", "one-way", "one_way", "single"):
+        return "oneway"
+
+    return "auto"
+
+
 def exchange_is_supported(exchange_name: str) -> bool:
     if ccxt is None:
         return False
@@ -165,6 +179,7 @@ def load_config_from_json_and_app(
     dry_run = bool_value(data.get("dry_run"), False)
     check_balance = bool_value(data.get("check_balance"), False)
     default_type = clean_value(data.get("default_type")) or "swap"
+    position_mode = normalize_position_mode(data.get("position_mode", "auto"))
 
     max_exchanges = int_value(data.get("max_exchanges"), 50)
     max_accounts_per_exchange = int_value(data.get("max_accounts_per_exchange"), 50)
@@ -242,6 +257,9 @@ def load_config_from_json_and_app(
         exchange_count += 1
 
         follower_default_type = clean_value(follower.get("default_type")) or default_type
+        follower_position_mode = normalize_position_mode(
+            follower.get("position_mode", position_mode)
+        )
         follower_sandbox = bool_value(follower.get("sandbox"), False)
 
         follower_multiplier = D(follower.get("size_multiplier", size_multiplier))
@@ -302,6 +320,9 @@ def load_config_from_json_and_app(
                     api_secret=api_secret,
                     sandbox=bool_value(account.get("sandbox"), follower_sandbox),
                     default_type=clean_value(account.get("default_type")) or follower_default_type,
+                    position_mode=normalize_position_mode(
+                        account.get("position_mode", follower_position_mode)
+                    ),
                     size_multiplier=account_multiplier,
                     set_leverage=bool_value(account.get("set_leverage"), follower_set_leverage),
                     close_extra_positions=bool_value(
@@ -328,6 +349,7 @@ def load_config_from_json_and_app(
         dry_run=dry_run,
         check_balance=check_balance,
         default_type=default_type,
+        position_mode=position_mode,
         symbols=symbols,
         size_multiplier=size_multiplier,
         set_leverage=set_leverage,
@@ -350,14 +372,19 @@ def create_client(account: CrossAccountConfig):
 
     exchange_class = getattr(ccxt, account.exchange_name)
 
+    options = {
+        "defaultType": account.default_type,
+    }
+
+    if account.exchange_name == "binance":
+        options["adjustForTimeDifference"] = True
+
     client = exchange_class(
         {
             "apiKey": account.api_key,
             "secret": account.api_secret,
             "enableRateLimit": True,
-            "options": {
-                "defaultType": account.default_type,
-            },
+            "options": options,
         }
     )
 
@@ -401,6 +428,7 @@ class CrossExchangeCopier:
                 account.api_secret[-6:],
                 str(account.sandbox),
                 account.default_type,
+                account.position_mode,
                 str(account.size_multiplier),
                 str(account.reserve_enabled),
                 str(account.loss_close_enabled),
@@ -428,7 +456,9 @@ class CrossExchangeCopier:
                 self.log(
                     f"CROSS-COPY {account.label}: client loaded "
                     f"exchange={account.exchange_name} "
-                    f"defaultType={account.default_type} sandbox={account.sandbox}"
+                    f"defaultType={account.default_type} "
+                    f"positionMode={account.position_mode} "
+                    f"sandbox={account.sandbox}"
                 )
             except Exception as e:
                 self.log(f"CROSS-COPY {account.label}: client load failed: {e}")
@@ -784,6 +814,46 @@ class CrossExchangeCopier:
         except Exception as e:
             self.log(f"CROSS-COPY {account.label}: set leverage skipped/failed {symbol}: {e}")
 
+    def binance_position_side(
+        self,
+        order_side: str,
+        reduce_only: bool,
+    ) -> str:
+        if reduce_only:
+            return "LONG" if order_side == "Sell" else "SHORT"
+
+        return "LONG" if order_side == "Buy" else "SHORT"
+
+    def build_order_params(
+        self,
+        account: CrossAccountConfig,
+        side: str,
+        reduce_only: bool,
+        include_position_side: bool,
+    ) -> Dict[str, Any]:
+        params: Dict[str, Any] = {}
+
+        if reduce_only:
+            params["reduceOnly"] = True
+
+        if account.exchange_name == "binance" and include_position_side:
+            params["positionSide"] = self.binance_position_side(
+                order_side=side,
+                reduce_only=reduce_only,
+            )
+
+        return params
+
+    def should_retry_with_binance_position_side(self, error: Exception) -> bool:
+        msg = str(error).lower()
+
+        return (
+            "positionside" in msg
+            or "position side" in msg
+            or "hedge mode" in msg
+            or "dual side" in msg
+        )
+
     def place_market_order(
         self,
         account: CrossAccountConfig,
@@ -801,15 +871,22 @@ class CrossExchangeCopier:
         ccxt_side = "buy" if side == "Buy" else "sell"
         amount = self.safe_amount_to_precision(client, symbol, qty)
 
-        params = {}
+        include_position_side = (
+            account.exchange_name == "binance"
+            and account.position_mode == "hedge"
+        )
 
-        if reduce_only:
-            params["reduceOnly"] = True
+        params = self.build_order_params(
+            account=account,
+            side=side,
+            reduce_only=reduce_only,
+            include_position_side=include_position_side,
+        )
 
         if dry_run:
             self.log(
                 f"CROSS-COPY {account.label}: DRY RUN order "
-                f"{symbol} {ccxt_side} qty={amount} reduceOnly={reduce_only}"
+                f"{symbol} {ccxt_side} qty={amount} reduceOnly={reduce_only} params={params}"
             )
             return
 
@@ -825,22 +902,66 @@ class CrossExchangeCopier:
             action = "CLOSE/REDUCE" if reduce_only else "OPEN/ADD"
             self.log(
                 f"CROSS-COPY {account.label}: {action} order sent "
-                f"{symbol} {ccxt_side} qty={amount}"
+                f"{symbol} {ccxt_side} qty={amount} params={params}"
             )
+            return
+
         except Exception as first_error:
-            if reduce_only:
+            if (
+                account.exchange_name == "binance"
+                and account.position_mode == "auto"
+                and self.should_retry_with_binance_position_side(first_error)
+            ):
+                retry_params = self.build_order_params(
+                    account=account,
+                    side=side,
+                    reduce_only=reduce_only,
+                    include_position_side=True,
+                )
+
                 try:
+                    self.log(
+                        f"CROSS-COPY {account.label}: retry Binance order with "
+                        f"positionSide params={retry_params}"
+                    )
                     client.create_order(
                         symbol=symbol,
                         type="market",
                         side=ccxt_side,
                         amount=float(amount),
                         price=None,
-                        params={},
+                        params=retry_params,
+                    )
+                    action = "CLOSE/REDUCE" if reduce_only else "OPEN/ADD"
+                    self.log(
+                        f"CROSS-COPY {account.label}: {action} retry order sent "
+                        f"{symbol} {ccxt_side} qty={amount} params={retry_params}"
+                    )
+                    return
+                except Exception as retry_error:
+                    self.log(
+                        f"CROSS-COPY {account.label}: Binance retry with positionSide failed "
+                        f"{symbol} {ccxt_side} qty={amount}: {retry_error}"
+                    )
+                    traceback.print_exc()
+                    return
+
+            if reduce_only:
+                try:
+                    retry_params = dict(params)
+                    retry_params.pop("reduceOnly", None)
+
+                    client.create_order(
+                        symbol=symbol,
+                        type="market",
+                        side=ccxt_side,
+                        amount=float(amount),
+                        price=None,
+                        params=retry_params,
                     )
                     self.log(
                         f"CROSS-COPY {account.label}: CLOSE retry without reduceOnly sent "
-                        f"{symbol} {ccxt_side} qty={amount}"
+                        f"{symbol} {ccxt_side} qty={amount} params={retry_params}"
                     )
                     return
                 except Exception:
@@ -848,7 +969,7 @@ class CrossExchangeCopier:
 
             self.log(
                 f"CROSS-COPY {account.label}: order failed "
-                f"{symbol} {ccxt_side} qty={amount}: {first_error}"
+                f"{symbol} {ccxt_side} qty={amount} params={params}: {first_error}"
             )
             traceback.print_exc()
 
