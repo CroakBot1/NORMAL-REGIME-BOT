@@ -5,270 +5,321 @@
   "loss_close_enabled": true,
   "sleep_sec": 15,
   "dry_run": false,
-  "check_balance": false,
-  "default_type": "swap",
+  "check_balance": true,
+  "default_type": "future",
   "symbols": ["BTCUSDT"],
   "size_multiplier": 1,
   "set_leverage": true,
   "close_extra_positions": true,
-  "reserve_usdt": 501,
-  "min_free_usdt_after_reserve": 1,
+  "reserve_usdt": 0,
+  "min_free_usdt_after_reserve": 0,
   "loss_close_usdt": 70,
   "max_exchanges": 50,
   "max_accounts_per_exchange": 50,
   "followers": [
     {
       "name": "binance",
+      "default_type": "future",
       "accounts": [
         {
           "label": "BINANCE#01",
           "api_key": "AjbXwj8Y7VszkDvNfOymFl0Mu35D5izN4AyIGXqY0JB4ysONTujASZlISbSgNyc0",
-          "api_secret": "CFEmPzcr2PXc9rEyhQbD9xk3u24MuZEwfZmTDCBotbQ9ZijmGFHJocJZT1eabj5R"
+          "api_secret": "CFEmPzcr2PXc9rEyhQbD9xk3u24MuZEwfZmTDCBotbQ9ZijmGFHJocJZT1eabj5R",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#02",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#03",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#04",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#05",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#06",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#07",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#08",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#09",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#10",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#11",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#12",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#13",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#14",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#15",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#16",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#17",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#18",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#19",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#20",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#21",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#22",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#23",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#24",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#25",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#26",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#27",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#28",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#29",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#30",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#31",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#32",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#33",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#34",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#35",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#36",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#37",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#38",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#39",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#40",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#41",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#42",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#43",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#44",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#45",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#46",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#47",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#48",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#49",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         },
         {
           "label": "BINANCE#50",
           "api_key": "",
-          "api_secret": ""
+          "api_secret": "",
+          "default_type": "future"
         }
       ]
     },
@@ -313,4 +364,4 @@
       ]
     }
   ]
-        }
+}
