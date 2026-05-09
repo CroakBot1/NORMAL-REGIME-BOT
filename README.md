@@ -1,4 +1,3 @@
-
 # NORMAL-REGIME-BOT
 
 ## Bybit Reserve + Copy Trade Bot
@@ -28,6 +27,8 @@ Default copied symbol is BTCUSDT.
 
 ## Environment Variables
 
+The `.env` structure is unchanged.
+
 Master:
 - BYBIT_API_KEY
 - BYBIT_API_SECRET
@@ -50,8 +51,11 @@ Main settings:
 - BOT_SLEEP_SEC=15
 - POSITION_LOCK_FILE=/tmp/bybit_position_topup.lock
 
-## Render Deployment
+## Multi Live Exchange Connector
 
-Use `render.yaml`, then add all API keys as secret environment variables in Render.
+The old Bybit bot logic is not changed.
 
-Do not commit `.env` or real API keys.
+Additional live exchange connections are loaded from:
+
+```txt
+live_exchanges.json
