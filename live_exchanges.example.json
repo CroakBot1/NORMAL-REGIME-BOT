@@ -1,0 +1,108 @@
+{
+  "enabled": true,
+  "sleep_sec": 60,
+  "check_balance": true,
+  "default_type": "swap",
+  "exchanges": [
+    {
+      "name": "bybit",
+      "api_key": "",
+      "api_secret": ""
+    },
+    {
+      "name": "binance",
+      "api_key": "",
+      "api_secret": ""
+    },
+    {
+      "name": "gateio",
+      "api_key": "",
+      "api_secret": ""
+    },
+    {
+      "name": "mexc",
+      "api_key": "",
+      "api_secret": ""
+    },
+    {
+      "name": "bitmart",
+      "api_key": "",
+      "api_secret": ""
+    },
+    {
+      "name": "bingx",
+      "api_key": "",
+      "api_secret": ""
+    },
+    {
+      "name": "phemex",
+      "api_key": "",
+      "api_secret": ""
+    },
+    {
+      "name": "kraken",
+      "api_key": "",
+      "api_secret": ""
+    },
+    {
+      "name": "coinbase",
+      "api_key": "",
+      "api_secret": ""
+    },
+    {
+      "name": "bitstamp",
+      "api_key": "",
+      "api_secret": ""
+    },
+    {
+      "name": "htx",
+      "api_key": "",
+      "api_secret": ""
+    },
+    {
+      "name": "bitfinex",
+      "api_key": "",
+      "api_secret": ""
+    },
+    {
+      "name": "cryptocom",
+      "api_key": "",
+      "api_secret": ""
+    },
+    {
+      "name": "deribit",
+      "api_key": "",
+      "api_secret": ""
+    },
+    {
+      "name": "woo",
+      "api_key": "",
+      "api_secret": ""
+    },
+    {
+      "name": "ascendex",
+      "api_key": "",
+      "api_secret": ""
+    },
+    {
+      "name": "bitmex",
+      "api_key": "",
+      "api_secret": ""
+    },
+    {
+      "name": "coinex",
+      "api_key": "",
+      "api_secret": ""
+    },
+    {
+      "name": "lbank",
+      "api_key": "",
+      "api_secret": ""
+    },
+    {
+      "name": "poloniex",
+      "api_key": "",
+      "api_secret": ""
+    }
+  ]
+}
