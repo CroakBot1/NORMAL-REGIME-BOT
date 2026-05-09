@@ -4,7 +4,7 @@ services:
     runtime: python
     plan: starter
     buildCommand: pip install -r requirements.txt
-    startCommand: python app.py
+    startCommand: python worker.py
     envVars:
       - key: BYBIT_MODE
         value: live
