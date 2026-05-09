@@ -2,8 +2,6 @@
 .env.*
 !.env.example
 
-live_exchanges.json
-
 __pycache__/
 *.pyc
 *.pyo
